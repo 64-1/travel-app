@@ -1,0 +1,23 @@
+{
+  "name": "travel-planner",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace=@travel-planner/web",
+    "build": "npm run db:generate && npm run build --workspace=@travel-planner/web",
+    "vercel-build": "prisma generate && prisma migrate deploy && npm run build --workspace=@travel-planner/web",
+    "clean": "node -e \"require('fs').rmSync('apps/web/.next',{recursive:true,force:true})\"",
+    "db:generate": "prisma generate",
+    "db:push": "prisma db push",
+    "db:migrate": "prisma migrate deploy",
+    "db:studio": "prisma studio",
+    "setup": "npm run db:generate && npm run db:migrate"
+  },
+  "devDependencies": {
+    "prisma": "^6.1.0",
+    "typescript": "^5.7.2"
+  }
+}
