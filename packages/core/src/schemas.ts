@@ -27,6 +27,11 @@ export const tripConstraintsSchema = z.object({
   vibe: z.enum(["must_see", "balanced", "hidden_gems"]),
 });
 
+const localizedTextSchema = z.object({
+  en: z.string(),
+  zh: z.string(),
+});
+
 export const placeSchema = z.object({
   id: z.string(),
   name: z.string(),
@@ -41,6 +46,10 @@ export const placeSchema = z.object({
   confidence: confidenceLabelSchema,
   localTips: z.array(z.string()).optional(),
   isCustom: z.boolean(),
+  imageUrl: z.string().url().optional(),
+  imageCredit: z.string().optional(),
+  intro: localizedTextSchema.optional(),
+  nameI18n: localizedTextSchema.optional(),
 });
 
 export const wishlistItemSchema = z.object({

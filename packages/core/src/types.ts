@@ -58,6 +58,10 @@ export interface Place {
   confidence: ConfidenceLabel;
   localTips?: string[];
   isCustom: boolean;
+  imageUrl?: string;
+  imageCredit?: string;
+  intro?: { en: string; zh: string };
+  nameI18n?: { en: string; zh: string };
 }
 
 export interface PlanBlock {
