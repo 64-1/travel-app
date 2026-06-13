@@ -50,11 +50,3 @@ See [DEPLOY.md](DEPLOY.md) for step-by-step instructions. Vercel + Neon Postgres
 ## License
 
 MIT — see [LICENSE](LICENSE). You may use, modify, and share the code with attribution.
-
-## Sharing this repo
-
-Before pushing to GitHub or sending the link, make sure:
-
-- `.env` and `.env.local` are **not** committed (they are gitignored)
-- Rotate any API keys if they were ever committed or shared elsewhere
-- Large local assets (e.g. `apps/web/public/demo/shanghai/hero.mp4`) are gitignored — your friend will need their own copy or a hosted URL
