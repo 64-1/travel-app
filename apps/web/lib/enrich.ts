@@ -1,7 +1,9 @@
 import type { Place } from "@travel-planner/core";
 import { generateId } from "./utils";
 
-export async function fetchPageMeta(url: string): Promise<{ title?: string; description?: string }> {
+export async function fetchPageMeta(
+  url: string
+): Promise<{ title?: string; description?: string; image?: string }> {
   try {
     const res = await fetch(url, {
       headers: { "User-Agent": "TravelPlannerBot/1.0" },
@@ -12,7 +14,14 @@ export async function fetchPageMeta(url: string): Promise<{ title?: string; desc
       ?? html.match(/<title>([^<]+)<\/title>/i)?.[1];
     const description = html.match(/<meta[^>]+property="og:description"[^>]+content="([^"]+)"/i)?.[1]
       ?? html.match(/<meta[^>]+name="description"[^>]+content="([^"]+)"/i)?.[1];
-    return { title: title?.trim(), description: description?.trim() };
+    const image =
+      html.match(/<meta[^>]+property="og:image"[^>]+content="([^"]+)"/i)?.[1]
+      ?? html.match(/<meta[^>]+property="og:image:secure_url"[^>]+content="([^"]+)"/i)?.[1];
+    return {
+      title: title?.trim(),
+      description: description?.trim(),
+      image: image?.trim(),
+    };
   } catch {
     return {};
   }

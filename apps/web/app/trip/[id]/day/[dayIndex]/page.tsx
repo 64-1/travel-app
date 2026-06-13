@@ -6,8 +6,10 @@ import type { Trip } from "@travel-planner/core";
 import { countTripDays } from "@travel-planner/core";
 import { DayTimeline } from "@/components/DayTimeline";
 import { DayMap } from "@/components/DayMap";
+import { NextStepCard } from "@/components/NextStepCard";
 import { TripProgress } from "@/components/TripProgress";
 import { PageSkeleton } from "@/components/LoadingSkeleton";
+import { useToast } from "@/components/Toast";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { useI18n } from "@/lib/i18n/context";
@@ -19,8 +21,10 @@ export default function DayDetailPage() {
   const { id, dayIndex: dayIndexStr } = useParams<{ id: string; dayIndex: string }>();
   const dayIndex = parseInt(dayIndexStr, 10);
   const { t, locale } = useI18n();
+  const { toast } = useToast();
   const [trip, setTrip] = useState<Trip | null>(null);
   const [loading, setLoading] = useState(true);
+  const [generating, setGenerating] = useState(false);
   const [tab, setTab] = useState<"timeline" | "map">("timeline");
 
   useEffect(() => {
@@ -29,6 +33,25 @@ export default function DayDetailPage() {
       .then(setTrip)
       .finally(() => setLoading(false));
   }, [id]);
+
+  async function generateRemaining() {
+    if (!trip) return;
+    setGenerating(true);
+    try {
+      const res = await fetch(`/api/trips/${id}/generate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fromDay: trip.daysGenerated, locale }),
+      });
+      if (!res.ok) throw new Error();
+      setTrip(await res.json());
+      toast(t("trip.toastDaysReady"), "success");
+    } catch {
+      toast(t("trip.toastDaysFailed"), "error");
+    } finally {
+      setGenerating(false);
+    }
+  }
 
   if (loading) return <PageSkeleton />;
   if (!trip) return <p className="text-center text-muted-foreground py-12">{t("common.notFound")}</p>;
@@ -140,6 +163,17 @@ export default function DayDetailPage() {
       ) : (
         <DayMap day={day} destination={trip.destination} />
       )}
+
+      <NextStepCard
+        tripId={id}
+        hasDay1
+        hasAllDays={hasAllDays}
+        wishlistCount={trip.wishlist.length}
+        onGenerateRemaining={generateRemaining}
+        generating={generating}
+        totalDays={totalDays}
+        context="day"
+      />
     </div>
   );
 }

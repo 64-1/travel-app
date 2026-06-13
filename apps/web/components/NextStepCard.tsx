@@ -13,6 +13,8 @@ interface Props {
   onGenerateRemaining?: () => void;
   generating?: boolean;
   totalDays: number;
+  /** When shown on a day page, swap "Review Day 1" for a link back to overview */
+  context?: "overview" | "day";
 }
 
 export function NextStepCard({
@@ -23,6 +25,7 @@ export function NextStepCard({
   onGenerateRemaining,
   generating,
   totalDays,
+  context = "overview",
 }: Props) {
   const { t } = useI18n();
 
@@ -31,9 +34,17 @@ export function NextStepCard({
       <div className="rounded-xl border border-green-200 bg-green-50 p-5">
         <div className="flex items-start gap-3">
           <Sparkles className="h-5 w-5 text-green-600 shrink-0 mt-0.5" />
-          <div>
+          <div className="flex-1">
             <p className="font-semibold text-green-900">{t("nextStep.readyTitle")}</p>
             <p className="text-sm text-green-800 mt-1">{t("nextStep.readyDesc")}</p>
+            {context === "day" && (
+              <Link href={`/trip/${tripId}`} className="inline-block mt-3">
+                <Button variant="outline" size="sm" className="border-green-300 bg-white hover:bg-green-50">
+                  {t("nextStep.viewOverview")}
+                  <ArrowRight className="h-4 w-4 ml-1" />
+                </Button>
+              </Link>
+            )}
           </div>
         </div>
       </div>
@@ -52,9 +63,15 @@ export function NextStepCard({
             {generating ? t("nextStep.generating") : t("nextStep.generateRest", { total: totalDays })}
             <ArrowRight className="h-4 w-4 ml-1" />
           </Button>
-          <Link href={`/trip/${tripId}/day/0`}>
-            <Button variant="outline">{t("nextStep.reviewDay1")}</Button>
-          </Link>
+          {context === "day" ? (
+            <Link href={`/trip/${tripId}`}>
+              <Button variant="outline">{t("nextStep.viewOverview")}</Button>
+            </Link>
+          ) : (
+            <Link href={`/trip/${tripId}/day/0`}>
+              <Button variant="outline">{t("nextStep.reviewDay1")}</Button>
+            </Link>
+          )}
         </div>
       </div>
     );

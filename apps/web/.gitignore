@@ -1,0 +1,6 @@
+.vercel
+.env*
+
+# Large hero uploads — keep locally, deploy with `vercel deploy` from this machine
+public/demo/shanghai/hero.mp4
+public/demo/shanghai/hero.webm

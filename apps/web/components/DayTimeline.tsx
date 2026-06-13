@@ -122,7 +122,8 @@ export function DayTimeline({ trip, day, onUpdate }: Props) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ rawInput: data.rawInput, destination: trip.destination }),
     });
-    const place = await enrichRes.json();
+    const enriched = await enrichRes.json();
+    const place = enriched.place ?? enriched;
 
     const res = await fetch(`/api/trips/${trip.id}/days/${day.dayIndex}/blocks`, {
       method: "POST",

@@ -16,7 +16,6 @@ import { prisma } from "../db";
 import { generateId } from "../utils";
 import { getOpenAI, hasAI } from "./client";
 import { mockGenerateDays, mockResearchCandidates } from "./mock-data";
-import { rawInputToPlace, fetchPageMeta } from "../enrich";
 
 type ContentLocale = "en" | "zh";
 
@@ -25,6 +24,64 @@ function languageInstruction(locale: ContentLocale = "en"): string {
     return "Write all user-facing text fields (whyRecommended, localTips, labels, themes) in Simplified Chinese (简体中文). Keep place names in their common local form.";
   }
   return "Write all user-facing text in English.";
+}
+
+function normalizePlaceName(name: string): string {
+  return name.toLowerCase().trim();
+}
+
+/** User-saved spots + researched candidates — saved spots never replace the research pool */
+function mergeWishlistIntoCandidates(trip: Trip, candidates: Place[]): Place[] {
+  const saved = trip.wishlist.filter((w) => w.place).map((w) => w.place!);
+  const seen = new Set<string>();
+  const merged: Place[] = [];
+
+  for (const place of [...saved, ...candidates]) {
+    const key = normalizePlaceName(place.name);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    merged.push(place);
+  }
+  return merged;
+}
+
+/** Every block keeps 2–3 picks: user saves can appear, but alternatives always come from the research pool */
+function ensureBlockAlternatives(days: DayPlan[], pool: Place[]): DayPlan[] {
+  const minSuggestions = 2;
+  const maxSuggestions = 3;
+
+  return days.map((day) => ({
+    ...day,
+    blocks: day.blocks.map((block) => {
+      const suggestions: Place[] = [...block.suggestions];
+      const usedNames = new Set(suggestions.map((s) => normalizePlaceName(s.name)));
+
+      const kindMatches = pool.filter(
+        (c) => block.kind === "meal" ? c.kind === "meal" : c.kind !== "meal"
+      );
+      const fillFrom = kindMatches.length >= minSuggestions ? kindMatches : pool;
+
+      for (const candidate of fillFrom) {
+        if (suggestions.length >= maxSuggestions) break;
+        const key = normalizePlaceName(candidate.name);
+        if (usedNames.has(key)) continue;
+        suggestions.push({ ...candidate, id: generateId() });
+        usedNames.add(key);
+      }
+
+      if (suggestions.length < minSuggestions) {
+        for (const candidate of pool) {
+          if (suggestions.length >= minSuggestions) break;
+          const key = normalizePlaceName(candidate.name);
+          if (usedNames.has(key)) continue;
+          suggestions.push({ ...candidate, id: generateId() });
+          usedNames.add(key);
+        }
+      }
+
+      return { ...block, suggestions: suggestions.length ? suggestions : block.suggestions };
+    }),
+  }));
 }
 
 async function getCachedResearch(key: string): Promise<Place[] | null> {
@@ -104,22 +161,28 @@ async function planningPass(
   }
 
   const openai = getOpenAI()!;
-  const mustInclude = trip.wishlist
-    .filter((w) => w.mustInclude && w.place)
-    .map((w) => w.place!);
+  const savedSpots = trip.wishlist.filter((w) => w.place).map((w) => w.place!);
+  const mustInclude = savedSpots.filter((p) =>
+    trip.wishlist.some((w) => w.mustInclude && w.place?.id === p.id)
+  );
 
   const existingDays = trip.days.filter((d) => d.dayIndex < fromDay);
+  const researchedOnly = candidates.filter(
+    (c) => !savedSpots.some((s) => normalizePlaceName(s.name) === normalizePlaceName(c.name))
+  );
 
   const prompt = `Create day plans for ${trip.destination}, days ${fromDay + 1} to ${toDay + 1} (0-indexed: ${fromDay} to ${toDay}).
 Trip pace: ${trip.pace}. Interests: ${trip.interests.join(", ")}.
 Constraints: ${constraintsToPrompt(trip.constraints)}
-Must-include places (schedule these first on day ${fromDay + 1}): ${JSON.stringify(mustInclude.map((p) => p.name))}
+User saved spots (from Xiaohongshu/links — schedule in fitting slots on day ${fromDay + 1}): ${JSON.stringify(savedSpots.map((p) => p.name))}
+Must-visit (required in itinerary): ${JSON.stringify(mustInclude.map((p) => p.name))}
 Existing days already planned: ${existingDays.length}
-Candidates pool: ${JSON.stringify(candidates.slice(0, 15).map((c) => ({ name: c.name, neighborhood: c.neighborhood, kind: c.kind })))}
+Research candidates pool (our curated suggestions — use for alternatives): ${JSON.stringify(researchedOnly.slice(0, 18).map((c) => ({ name: c.name, neighborhood: c.neighborhood, kind: c.kind })))}
 
 Return JSON: { "days": [ DayPlan[] ] }
 Each DayPlan: dayIndex, date (${dateForDayIndex(trip.startDate, fromDay)} format), theme, neighborhoods (ordered), blocks.
-Each block: id, kind, label (e.g. "Breakfast in Shibuya"), neighborhood, suggestions (2-3 places from candidates with full fields), backupPlace (optional), status "suggested".
+Each block: id, kind, label (e.g. "Breakfast in Shibuya"), neighborhood, suggestions (2-3 places with full fields), backupPlace (optional), status "suggested".
+IMPORTANT: Every block must have 2-3 suggestions. At most one suggestion per block may be a user saved spot; the other 1-2 must come from the research candidates pool (not duplicates of saved spots).
 Cluster by neighborhood. Lunch near morning area. No duplicate places across days.
 Do not use minute-by-minute times.
 ${languageInstruction(locale)}`;
@@ -169,34 +232,9 @@ export async function enrichWishlistItem(
   destination?: string,
   locale: ContentLocale = "en"
 ): Promise<Place> {
-  const isUrl = /^https?:\/\//i.test(rawInput.trim());
-  const meta = isUrl ? await fetchPageMeta(rawInput) : {};
-
-  if (hasAI()) {
-    const openai = getOpenAI()!;
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        {
-          role: "user",
-          content: `Turn this into a travel Place JSON for destination ${destination ?? "unknown"}.
-Input: ${rawInput}
-Meta: ${JSON.stringify(meta)}
-Fields: id, name, neighborhood, kind, mealSlot, whyRecommended, sourceLinks, tags, confidence (user_added), localTips, isCustom (true).
-No fake ratings. ${languageInstruction(locale)}`,
-        },
-      ],
-      response_format: { type: "json_object" },
-    });
-    try {
-      const place = JSON.parse(response.choices[0]?.message?.content ?? "{}") as Place;
-      return { ...place, id: place.id || generateId(), confidence: "user_added", isCustom: true };
-    } catch {
-      // fall through
-    }
-  }
-
-  return rawInputToPlace(rawInput, destination, meta);
+  const { resolvePlaceInput } = await import("../place-resolve");
+  const { place } = await resolvePlaceInput(rawInput, destination ?? "Unknown", locale);
+  return place;
 }
 
 export async function generateTripDays(
@@ -207,9 +245,11 @@ export async function generateTripDays(
   const totalDays = countTripDays(trip.startDate, trip.endDate);
   const toDay = fromDay === 0 ? 0 : totalDays - 1;
 
-  const candidates = await researchPass(trip, locale);
-  const newDays = await planningPass(trip, candidates, fromDay, toDay, locale);
-  const validated = validationPass(trip, newDays);
+  const researched = await researchPass(trip, locale);
+  const candidates = mergeWishlistIntoCandidates(trip, researched);
+  const planned = await planningPass(trip, candidates, fromDay, toDay, locale);
+  const withAlternatives = ensureBlockAlternatives(planned, researched);
+  const validated = validationPass(trip, withAlternatives);
 
   const allDays = [
     ...trip.days.filter((d) => !validated.some((v) => v.dayIndex === d.dayIndex)),

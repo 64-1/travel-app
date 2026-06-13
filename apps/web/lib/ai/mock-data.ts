@@ -122,28 +122,27 @@ export function mockGenerateDays(
   const days: DayPlan[] = [];
   let spotIndex = fromDay * labels.length;
 
-  const mustIncludePlaces = trip.wishlist
-    .filter((w) => w.mustInclude && w.place)
-    .map((w) => w.place!);
+  const savedPlaces = trip.wishlist.filter((w) => w.place).map((w) => w.place!);
 
   for (let d = fromDay; d <= toDay; d++) {
     const neighborhoods = data.neighborhoods;
     const blocks = labels.map((label, i) => {
       const altCount = 3;
       const suggestions: Place[] = [];
+      const usedNames = new Set<string>();
 
-      if (i === 1 && mustIncludePlaces.length && d === fromDay) {
-        const p = mustIncludePlaces.shift()!;
-        suggestions.push(p);
-        for (let a = 1; a < altCount; a++) {
-          const c = candidates[(spotIndex + a) % candidates.length];
-          if (c.name !== p.name) suggestions.push({ ...c, id: generateId() });
-        }
-      } else {
-        for (let a = 0; a < altCount; a++) {
-          const c = candidates[(spotIndex + a) % candidates.length];
-          suggestions.push({ ...c, id: generateId() });
-        }
+      // Slot user-saved spots (e.g. Xiaohongshu) into early day-1 blocks, then fill alternatives from research pool
+      if (d === fromDay && i < savedPlaces.length) {
+        const saved = savedPlaces[i];
+        suggestions.push(saved);
+        usedNames.add(saved.name.toLowerCase());
+      }
+
+      for (let a = 0; suggestions.length < altCount; a++) {
+        const c = candidates[(spotIndex + a) % candidates.length];
+        if (usedNames.has(c.name.toLowerCase())) continue;
+        suggestions.push({ ...c, id: generateId() });
+        usedNames.add(c.name.toLowerCase());
       }
 
       spotIndex++;
