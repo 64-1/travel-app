@@ -31,7 +31,6 @@ export function SharePlaceImage({ src, alt, className }: Props) {
       src={src}
       alt={alt}
       fill
-      unoptimized
       className={className}
       sizes="(max-width: 768px) 100vw, 720px"
       onError={() => setFailed(true)}

@@ -9,7 +9,7 @@ import { EmptyState } from "./EmptyState";
 import { useToast } from "./Toast";
 import { useI18n } from "@/lib/i18n/context";
 import type { TranslationKey } from "@/lib/i18n";
-import { Bookmark, Link2 } from "lucide-react";
+import { Bookmark, Link2, X } from "lucide-react";
 
 interface Props {
   trip: Trip;
@@ -59,6 +59,33 @@ export function WishlistInbox({ trip, onUpdate }: Props) {
       toast(t("wishlist.toastAddFailed"), "error");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function removeItem(itemId: string) {
+    try {
+      const res = await fetch(`/api/trips/${trip.id}/wishlist?itemId=${itemId}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) throw new Error();
+      onUpdate(await res.json());
+      toast(t("wishlist.toastRemoved"), "success");
+    } catch {
+      toast(t("wishlist.toastRemoveFailed"), "error");
+    }
+  }
+
+  async function toggleMustInclude(itemId: string, mustInclude: boolean) {
+    try {
+      const res = await fetch(`/api/trips/${trip.id}/wishlist`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ itemId, mustInclude }),
+      });
+      if (!res.ok) throw new Error();
+      onUpdate(await res.json());
+    } catch {
+      toast(t("wishlist.toastAddFailed"), "error");
     }
   }
 
@@ -126,11 +153,17 @@ export function WishlistInbox({ trip, onUpdate }: Props) {
                           <span className="rounded-full bg-accent px-2.5 py-0.5 text-xs font-medium text-primary">
                             {confidenceLabel(item.place.confidence)}
                           </span>
-                          {item.mustInclude && (
-                            <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-800">
-                              {t("wishlist.mustVisit")}
-                            </span>
-                          )}
+                          <button
+                            type="button"
+                            onClick={() => toggleMustInclude(item.id, !item.mustInclude)}
+                            className={`rounded-full px-2.5 py-0.5 text-xs font-medium transition-colors ${
+                              item.mustInclude
+                                ? "bg-amber-100 text-amber-800"
+                                : "bg-muted text-muted-foreground hover:bg-amber-50"
+                            }`}
+                          >
+                            {t("wishlist.mustVisit")}
+                          </button>
                         </div>
                       </>
                     ) : (
@@ -140,6 +173,14 @@ export function WishlistInbox({ trip, onUpdate }: Props) {
                       </>
                     )}
                   </div>
+                  <button
+                    type="button"
+                    onClick={() => removeItem(item.id)}
+                    className="shrink-0 rounded-lg p-1.5 text-muted-foreground hover:bg-muted hover:text-red-600"
+                    aria-label={t("wishlist.remove")}
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
                 </div>
               </li>
             ))}

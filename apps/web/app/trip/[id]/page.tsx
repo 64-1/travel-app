@@ -27,8 +27,12 @@ export default function TripOverviewPage() {
 
   useEffect(() => {
     fetch(`/api/trips/${id}`)
-      .then((r) => r.json())
+      .then((r) => {
+        if (!r.ok) throw new Error();
+        return r.json();
+      })
       .then(setTrip)
+      .catch(() => setTrip(null))
       .finally(() => setLoading(false));
   }, [id]);
 
@@ -51,13 +55,18 @@ export default function TripOverviewPage() {
   }
 
   async function duplicateDay(dayIndex: number) {
-    const res = await fetch(`/api/trips/${id}/duplicate-day`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ dayIndex }),
-    });
-    setTrip(await res.json());
-    toast(t("trip.toastDuplicated"), "success");
+    try {
+      const res = await fetch(`/api/trips/${id}/duplicate-day`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ dayIndex }),
+      });
+      if (!res.ok) throw new Error();
+      setTrip(await res.json());
+      toast(t("trip.toastDuplicated"), "success");
+    } catch {
+      toast(t("trip.toastSaveFailed"), "error");
+    }
   }
 
   if (loading) return <PageSkeleton />;
@@ -80,7 +89,7 @@ export default function TripOverviewPage() {
         </h1>
         <p className="text-[var(--share-muted)] flex items-center gap-1.5 text-sm">
           <Calendar className="h-4 w-4" />
-          {formatDateRange(trip.startDate, trip.endDate, locale)} · {getPaceLabel(locale, trip.pace)} · {totalDays} {locale === "zh" ? "天" : totalDays === 1 ? "day" : "days"}
+          {formatDateRange(trip.startDate, trip.endDate, locale)} · {getPaceLabel(locale, trip.pace)} · {t("trip.dayCount", { count: totalDays })}
         </p>
       </header>
 

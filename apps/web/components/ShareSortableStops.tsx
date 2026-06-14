@@ -17,7 +17,9 @@ import {
   useSortable,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { ShareStopPlanning } from "@/components/ShareStopPlanning";
 import { SharePlaceCard } from "@/components/SharePlaceCard";
+import { useEditableTrip } from "@/lib/editable-trip-context";
 import { useI18n } from "@/lib/i18n/context";
 import { getSelectedPlace } from "@travel-planner/core";
 import { GripVertical } from "lucide-react";
@@ -26,12 +28,13 @@ import { cn } from "@/lib/utils";
 interface SortableItemProps {
   block: PlanBlock;
   blockIdx: number;
+  dayIndex: number;
   basePath: string;
-  locale: "en" | "zh";
   onRemove?: () => void;
+  planning: boolean;
 }
 
-function SortableStopCard({ block, blockIdx, basePath, locale, onRemove }: SortableItemProps) {
+function SortableStopCard({ block, blockIdx, dayIndex, basePath, onRemove, planning }: SortableItemProps) {
   const { t } = useI18n();
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: block.id,
@@ -39,8 +42,23 @@ function SortableStopCard({ block, blockIdx, basePath, locale, onRemove }: Sorta
   const place = getSelectedPlace(block);
   if (!place) return null;
 
-  const placeName =
-    locale === "zh" ? place.nameI18n?.zh ?? place.name : place.nameI18n?.en ?? place.name;
+  const card = planning ? (
+    <ShareStopPlanning
+      block={block}
+      dayIndex={dayIndex}
+      blockIdx={blockIdx}
+      basePath={basePath}
+      onRemove={onRemove}
+    />
+  ) : (
+    <SharePlaceCard
+      place={place}
+      label={block.label}
+      index={blockIdx + 1}
+      detailHref={`${basePath}/place/${place.id}`}
+      onRemove={onRemove}
+    />
+  );
 
   return (
     <div
@@ -59,29 +77,24 @@ function SortableStopCard({ block, blockIdx, basePath, locale, onRemove }: Sorta
           <GripVertical className="h-4 w-4" />
         </button>
       )}
-      <div className={onRemove !== undefined ? "pl-8" : undefined}>
-        <SharePlaceCard
-          place={place}
-          label={block.label}
-          index={blockIdx + 1}
-          detailHref={`${basePath}/place/${place.id}`}
-          onRemove={onRemove}
-        />
-      </div>
+      <div className={onRemove !== undefined ? "pl-8" : undefined}>{card}</div>
     </div>
   );
 }
 
 interface Props {
   blocks: PlanBlock[];
+  dayIndex: number;
   basePath: string;
   editable: boolean;
   onReorder: (blockIds: string[]) => void;
   onRemove: (blockId: string, placeName: string) => void;
 }
 
-export function ShareSortableStops({ blocks, basePath, editable, onReorder, onRemove }: Props) {
+export function ShareSortableStops({ blocks, dayIndex, basePath, editable, onReorder, onRemove }: Props) {
   const { t, locale } = useI18n();
+  const { persistMode } = useEditableTrip();
+  const planning = editable && persistMode === "server";
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -110,9 +123,15 @@ export function ShareSortableStops({ blocks, basePath, editable, onReorder, onRe
         {blocks.map((block, blockIdx) => {
           const place = getSelectedPlace(block);
           if (!place) return null;
-          const placeName =
-            locale === "zh" ? place.nameI18n?.zh ?? place.name : place.nameI18n?.en ?? place.name;
-          return (
+          return planning ? (
+            <ShareStopPlanning
+              key={block.id}
+              block={block}
+              dayIndex={dayIndex}
+              blockIdx={blockIdx}
+              basePath={basePath}
+            />
+          ) : (
             <SharePlaceCard
               key={block.id}
               place={place}
@@ -144,8 +163,9 @@ export function ShareSortableStops({ blocks, basePath, editable, onReorder, onRe
                   key={block.id}
                   block={block}
                   blockIdx={blockIdx}
+                  dayIndex={dayIndex}
                   basePath={basePath}
-                  locale={locale}
+                  planning={planning}
                   onRemove={() => onRemove(block.id, placeName)}
                 />
               );

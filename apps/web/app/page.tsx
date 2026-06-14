@@ -14,7 +14,9 @@ import { ServiceWorkerRegister } from "@/components/ServiceWorkerRegister";
 import { useToast } from "@/components/Toast";
 import { useI18n } from "@/lib/i18n/context";
 import { tripDurationLabel } from "@/lib/format";
-import { MapPin, ChevronDown, ChevronUp, Sparkles } from "lucide-react";
+import Link from "next/link";
+import { MapPin, ChevronDown, ChevronUp, Sparkles, ArrowRight } from "lucide-react";
+import { listDemoDestinations } from "@/lib/destinations/registry";
 
 const POPULAR_DESTINATIONS = ["Tokyo", "Osaka", "Kyoto", "Paris", "Bangkok", "Taipei"];
 
@@ -96,6 +98,8 @@ export default function HomePage() {
     startDate && endDate && new Date(endDate) >= new Date(startDate)
       ? tripDurationLabel(startDate, endDate, locale)
       : null;
+
+  const demos = listDemoDestinations();
 
   return (
     <main className="share-page min-h-dvh">
@@ -231,6 +235,20 @@ export default function HomePage() {
             </form>
           </CardContent>
         </Card>
+
+        {demos.length > 0 && (
+          <Link
+            href={`/demo/${demos[0].slug}/day/0`}
+            className="share-card mt-6 block p-5 transition-shadow hover:shadow-md"
+          >
+            <p className="font-semibold">{t("home.seeDemo")}</p>
+            <p className="mt-1 text-sm text-[var(--share-muted)]">{t("home.seeDemoDesc")}</p>
+            <span className="mt-3 inline-flex items-center gap-1 text-sm font-medium text-[var(--share-accent)]">
+              {demos[0].name[locale]}
+              <ArrowRight className="h-4 w-4" />
+            </span>
+          </Link>
+        )}
       </div>
     </main>
   );

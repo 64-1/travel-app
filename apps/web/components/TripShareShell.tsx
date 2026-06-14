@@ -12,6 +12,7 @@ import { destinationDisplayName } from "@/lib/destinations/registry";
 import { ShareHeroMedia } from "@/components/ShareHeroMedia";
 import { shareShellWidth } from "@/lib/share-layout";
 import { useEditableTripOptional } from "@/lib/editable-trip-context";
+import { ExportTrip } from "@/components/ExportTrip";
 import { Map, Sparkles, LayoutGrid, Heart } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -198,14 +199,21 @@ export function TripShareShell({ trip, basePath, mode = "share", children }: Pro
 
       <main className={cn("py-6 pb-20 lg:pb-10", shellWidth)}>{children}</main>
 
-      <footer className="border-t border-[var(--share-border)] bg-[var(--share-card)] py-8 text-center">
-        <p className="mb-3 text-xs text-[var(--share-muted)]">{t("share.madeWith")}</p>
-        <Link
-          href="/"
-          className="share-btn-primary inline-flex rounded-full px-5 py-2 text-sm font-semibold share-focus"
-        >
-          {t("share.planOwn")}
-        </Link>
+      <footer className="border-t border-[var(--share-border)] bg-[var(--share-card)] py-8">
+        <div className={cn("text-center space-y-4", shellWidth)}>
+          {mode === "owner" && (
+            <div className="flex justify-center">
+              <ExportTrip trip={trip} variant="share" />
+            </div>
+          )}
+          <p className="text-xs text-[var(--share-muted)]">{t("share.madeWith")}</p>
+          <Link
+            href="/"
+            className="share-btn-primary inline-flex rounded-full px-5 py-2 text-sm font-semibold share-focus"
+          >
+            {t("share.planOwn")}
+          </Link>
+        </div>
       </footer>
     </div>
   );

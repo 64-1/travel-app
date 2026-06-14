@@ -16,13 +16,34 @@ interface Props {
 export function TripShell({ tripId, children }: Props) {
   const { t } = useI18n();
   const [trip, setTrip] = useState<Trip | null>(null);
+  const [loadError, setLoadError] = useState(false);
 
   useEffect(() => {
+    setLoadError(false);
     fetch(`/api/trips/${tripId}`)
-      .then((r) => r.json())
+      .then((r) => {
+        if (!r.ok) throw new Error("failed");
+        return r.json();
+      })
       .then(setTrip)
-      .catch(() => setTrip(null));
+      .catch(() => {
+        setTrip(null);
+        setLoadError(true);
+      });
   }, [tripId]);
+
+  if (loadError) {
+    return (
+      <div className="share-page min-h-dvh pb-8">
+        <div className="mx-auto max-w-4xl px-4 py-12 text-center">
+          <p className="text-[var(--share-muted)]">{t("common.notFound")}</p>
+          <Link href="/" className="text-[var(--share-accent)] mt-4 inline-block text-sm">
+            {t("common.backHome")}
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="share-page min-h-dvh pb-8">

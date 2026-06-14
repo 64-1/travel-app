@@ -2,18 +2,21 @@
 
 import { useMemo, useState } from "react";
 import type { DayPlan, Trip } from "@travel-planner/core";
+import { countTripDays } from "@travel-planner/core";
 import { getSelectedPlace } from "@travel-planner/core";
 import { ShareSortableStops } from "@/components/ShareSortableStops";
 import { ShareTripMap } from "@/components/ShareTripMap";
 import { ShareDayNav } from "@/components/ShareDayNav";
 import { ShareAddStopDialog } from "@/components/ShareAddStopDialog";
+import { RegenerateDialog } from "@/components/RegenerateDialog";
+import { GenerateRemainingBanner } from "@/components/GenerateRemainingBanner";
 import { useEditableTrip } from "@/lib/editable-trip-context";
 import { getDestinationCatalog } from "@/lib/destinations/registry";
 import { collectAllPlacesFromTrip } from "@/lib/demo/trip-places";
 import { useConfirmDialog } from "@/lib/use-confirm-dialog";
 import { useI18n } from "@/lib/i18n/context";
 import { dayLabel } from "@/lib/format";
-import { MapPin, Plus, RotateCcw, Route } from "lucide-react";
+import { MapPin, Plus, RotateCcw, Route, RefreshCw } from "lucide-react";
 
 interface DayPanelProps {
   day: DayPlan;
@@ -23,9 +26,12 @@ interface DayPanelProps {
 
 export function ShareDayPanel({ day, trip, basePath }: DayPanelProps) {
   const { t, locale } = useI18n();
-  const { editable, removeBlock, reorderBlocks, addPlaceBlock, resetTrip, isDirty } = useEditableTrip();
+  const { editable, removeBlock, reorderBlocks, addPlaceBlock, resetTrip, isDirty, persistMode, regenerateDay, isRegenerating } = useEditableTrip();
   const [addOpen, setAddOpen] = useState(false);
+  const [redoDayOpen, setRedoDayOpen] = useState(false);
   const { confirm, dialog: confirmDialog } = useConfirmDialog();
+  const totalDays = countTripDays(trip.startDate, trip.endDate);
+  const showOwnerActions = persistMode === "server";
 
   const blocks = day.blocks.filter((b) => b.status !== "skipped");
   const seedCatalog = getDestinationCatalog(trip.destination, trip.id);
@@ -84,7 +90,7 @@ export function ShareDayPanel({ day, trip, basePath }: DayPanelProps) {
               <span className="rounded-full bg-[var(--share-green-soft)] px-3 py-1 text-xs font-semibold text-[var(--share-green)]">
                 {t("share.stopCount", { count: String(blocks.length) })}
               </span>
-              {isDirty && editable && (
+              {isDirty && editable && persistMode === "local" && (
                 <button
                   type="button"
                   onClick={handleReset}
@@ -92,6 +98,17 @@ export function ShareDayPanel({ day, trip, basePath }: DayPanelProps) {
                 >
                   <RotateCcw className="h-3 w-3" />
                   {t("share.resetItinerary")}
+                </button>
+              )}
+              {showOwnerActions && (
+                <button
+                  type="button"
+                  disabled={isRegenerating}
+                  onClick={() => setRedoDayOpen(true)}
+                  className="share-focus flex items-center gap-1 rounded-full border border-[var(--share-border)] px-2.5 py-1 text-xs font-medium text-[var(--share-muted)] hover:text-[var(--share-accent)] disabled:opacity-50"
+                >
+                  <RefreshCw className={`h-3 w-3 ${isRegenerating ? "animate-spin" : ""}`} />
+                  {t("dayActions.redoDay")}
                 </button>
               )}
             </div>
@@ -109,6 +126,10 @@ export function ShareDayPanel({ day, trip, basePath }: DayPanelProps) {
           )}
         </div>
       </header>
+
+      {showOwnerActions && trip.daysGenerated < totalDays && (
+        <GenerateRemainingBanner trip={trip} />
+      )}
 
       {/* Stops first */}
       <section>
@@ -148,6 +169,7 @@ export function ShareDayPanel({ day, trip, basePath }: DayPanelProps) {
         ) : (
           <ShareSortableStops
             blocks={blocks}
+            dayIndex={day.dayIndex}
             basePath={basePath}
             editable={editable}
             onReorder={(blockIds) => reorderBlocks(day.dayIndex, blockIds)}
@@ -183,6 +205,14 @@ export function ShareDayPanel({ day, trip, basePath }: DayPanelProps) {
       />
 
       {confirmDialog}
+
+      <RegenerateDialog
+        open={redoDayOpen}
+        onClose={() => setRedoDayOpen(false)}
+        onSubmit={(reason, customFeedback) => {
+          void regenerateDay(day.dayIndex, reason, customFeedback);
+        }}
+      />
     </div>
   );
 }

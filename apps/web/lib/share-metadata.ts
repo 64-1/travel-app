@@ -55,19 +55,3 @@ export async function metadataForShareToken(token: string): Promise<Metadata> {
   }
   return metadataForTrip(trip, `/share/${token}/day/0`);
 }
-
-export const shanghaiDemoMetadata: Metadata = metadataForTrip(
-  {
-    id: "demo-shanghai",
-    destination: "Shanghai",
-    startDate: "2025-06-01",
-    endDate: "2025-06-05",
-    interests: [],
-    pace: "balanced",
-    constraints: { budget: "mid", mobility: "moderate", vibe: "balanced" },
-    wishlist: [],
-    days: [{ dayIndex: 0, theme: "", neighborhoods: [], blocks: [] }],
-    daysGenerated: 5,
-  },
-  "/demo/shanghai/day/0"
-);

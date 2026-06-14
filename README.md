@@ -36,7 +36,7 @@ See [DEPLOY.md](DEPLOY.md) for step-by-step instructions. Vercel + Neon Postgres
 
 - `apps/web` — Next.js 15 web app
 - `packages/core` — shared types, Zod schemas, validation
-- `prisma` — SQLite database schema
+- `prisma` — PostgreSQL database schema (Neon on Vercel)
 
 ## Environment
 

@@ -84,6 +84,7 @@ interface EditableTripContextValue {
   editable: boolean;
   persistMode: PersistMode;
   isDirty: boolean;
+  isRegenerating: boolean;
   removeBlock: (dayIndex: number, blockId: string) => void;
   reorderBlocks: (dayIndex: number, blockIds: string[]) => void;
   addPlaceBlock: (
@@ -92,6 +93,18 @@ interface EditableTripContextValue {
     label?: string,
     details?: PlaceDetailRecord
   ) => void;
+  patchBlock: (
+    dayIndex: number,
+    blockId: string,
+    data: { status?: PlanBlock["status"]; selectedPlaceId?: string }
+  ) => void;
+  regenerateBlock: (
+    dayIndex: number,
+    blockId: string,
+    reason: string,
+    customFeedback?: string
+  ) => Promise<void>;
+  regenerateDay: (dayIndex: number, reason: string, customFeedback?: string) => Promise<void>;
   resetTrip: () => void;
 }
 
@@ -113,13 +126,14 @@ export function EditableTripProvider({
   children,
 }: ProviderProps) {
   const { toast } = useToast();
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const initialRef = useRef(initialTrip);
   initialRef.current = initialTrip;
 
   const [trip, setTrip] = useState(initialTrip);
   const [extraDetails, setExtraDetails] = useState<Record<string, PlaceDetailRecord>>({});
   const [isDirty, setIsDirty] = useState(false);
+  const [isRegenerating, setIsRegenerating] = useState(false);
   const [hydrated, setHydrated] = useState(false);
   const reorderDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reorderSnapshotRef = useRef<Trip | null>(null);
@@ -304,18 +318,145 @@ export function EditableTripProvider({
     reorderSnapshotRef.current = null;
   }, [persist, tripId]);
 
+  const patchBlock = useCallback(
+    (
+      dayIndex: number,
+      blockId: string,
+      data: { status?: PlanBlock["status"]; selectedPlaceId?: string }
+    ) => {
+      let previous: Trip | null = null;
+      setTrip((prev) => {
+        previous = prev;
+        return {
+          ...prev,
+          days: prev.days.map((d) => {
+            if (d.dayIndex !== dayIndex) return d;
+            return {
+              ...d,
+              blocks: d.blocks.map((b) => {
+                if (b.id !== blockId) return b;
+                return {
+                  ...b,
+                  ...(data.status !== undefined ? { status: data.status } : {}),
+                  ...(data.selectedPlaceId !== undefined
+                    ? { selectedPlaceId: data.selectedPlaceId }
+                    : {}),
+                };
+              }),
+            };
+          }),
+        };
+      });
+
+      if (persist === "local") {
+        setIsDirty(true);
+        return;
+      }
+
+      void (async () => {
+        try {
+          const res = await fetch(
+            `/api/trips/${tripId}/days/${dayIndex}/blocks/${blockId}`,
+            {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(data),
+            }
+          );
+          if (!res.ok) throw new Error("patch failed");
+          setTrip(await res.json());
+        } catch {
+          if (previous) setTrip(previous);
+          toast(t("trip.toastSaveFailed"), "error");
+        }
+      })();
+    },
+    [persist, tripId, toast, t]
+  );
+
+  const runRegenerate = useCallback(
+    async (
+      scope: "block" | "day",
+      dayIndex: number,
+      blockId: string | undefined,
+      reason: string,
+      customFeedback?: string
+    ) => {
+      if (persist !== "server") return;
+      setIsRegenerating(true);
+      try {
+        const res = await fetch(`/api/trips/${tripId}/regenerate`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            scope,
+            dayIndex,
+            blockId,
+            reason,
+            customFeedback,
+            locale,
+          }),
+        });
+        if (!res.ok) throw new Error("regenerate failed");
+        setTrip(await res.json());
+        toast(t("regenerate.toastDone"), "success");
+      } catch {
+        toast(t("regenerate.toastFailed"), "error");
+      } finally {
+        setIsRegenerating(false);
+      }
+    },
+    [persist, tripId, toast, t, locale]
+  );
+
+  const regenerateBlock = useCallback(
+    async (
+      dayIndex: number,
+      blockId: string,
+      reason: string,
+      customFeedback?: string
+    ) => {
+      await runRegenerate("block", dayIndex, blockId, reason, customFeedback);
+    },
+    [runRegenerate]
+  );
+
+  const regenerateDay = useCallback(
+    async (dayIndex: number, reason: string, customFeedback?: string) => {
+      await runRegenerate("day", dayIndex, undefined, reason, customFeedback);
+    },
+    [runRegenerate]
+  );
+
   const value = useMemo(
     () => ({
       trip,
       editable,
       persistMode: persist,
       isDirty: persist === "local" ? isDirty : false,
+      isRegenerating,
       removeBlock,
       reorderBlocks,
       addPlaceBlock,
+      patchBlock,
+      regenerateBlock,
+      regenerateDay,
       resetTrip,
     }),
-    [trip, editable, persist, isDirty, removeBlock, reorderBlocks, addPlaceBlock, resetTrip]
+    [
+      trip,
+      editable,
+      persist,
+      isDirty,
+      isRegenerating,
+      removeBlock,
+      reorderBlocks,
+      addPlaceBlock,
+      patchBlock,
+      regenerateBlock,
+      regenerateDay,
+      resetTrip,
+    ]
   );
 
   return (

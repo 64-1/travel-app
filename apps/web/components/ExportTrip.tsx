@@ -11,9 +11,10 @@ import { Share2, Download } from "lucide-react";
 
 interface Props {
   trip: Trip;
+  variant?: "default" | "share";
 }
 
-export function ExportTrip({ trip }: Props) {
+export function ExportTrip({ trip, variant = "default" }: Props) {
   const { toast } = useToast();
   const { t, locale } = useI18n();
   const [shareUrl, setShareUrl] = useState<string | null>(null);
@@ -69,18 +70,38 @@ export function ExportTrip({ trip }: Props) {
     }
   }
 
+  const btnClass =
+    variant === "share"
+      ? "share-focus flex items-center gap-1.5 rounded-full border border-[var(--share-border)] px-4 py-2 text-sm font-medium text-[var(--share-text)] hover:border-[var(--share-accent)] hover:text-[var(--share-accent)]"
+      : undefined;
+
   return (
-    <div className="flex flex-wrap gap-2">
-      <Button variant="outline" size="sm" onClick={downloadMarkdown}>
-        <Download className="h-4 w-4 mr-1" />
-        {t("common.download")}
-      </Button>
-      <Button variant="outline" size="sm" onClick={share}>
-        <Share2 className="h-4 w-4 mr-1" />
-        {t("common.share")}
-      </Button>
+    <div className="flex flex-wrap gap-2 justify-center">
+      {variant === "share" ? (
+        <>
+          <button type="button" onClick={downloadMarkdown} className={btnClass}>
+            <Download className="h-4 w-4" />
+            {t("common.download")}
+          </button>
+          <button type="button" onClick={share} className={btnClass}>
+            <Share2 className="h-4 w-4" />
+            {t("common.share")}
+          </button>
+        </>
+      ) : (
+        <>
+          <Button variant="outline" size="sm" onClick={downloadMarkdown}>
+            <Download className="h-4 w-4 mr-1" />
+            {t("common.download")}
+          </Button>
+          <Button variant="outline" size="sm" onClick={share}>
+            <Share2 className="h-4 w-4 mr-1" />
+            {t("common.share")}
+          </Button>
+        </>
+      )}
       {shareUrl && (
-        <p className="text-xs text-muted-foreground w-full break-all">{shareUrl}</p>
+        <p className="text-xs text-[var(--share-muted)] w-full break-all text-center">{shareUrl}</p>
       )}
     </div>
   );

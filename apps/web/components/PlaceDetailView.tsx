@@ -65,7 +65,8 @@ export function PlaceDetailView({ place, basePath, dayIndex, blockLabel, destina
   const [tab, setTab] = useState<Tab>("overview");
   const [saved, setSaved] = useState(false);
   const details = getPlaceDetails(place.id);
-  const about = getPlaceAbout(place.id);
+  const staticAbout = getPlaceAbout(place.id);
+  const [aboutText, setAboutText] = useState(staticAbout);
   const staticPhotos = useMemo(
     () =>
       getPlaceGallery(place.id, {
@@ -107,6 +108,30 @@ export function PlaceDetailView({ place, basePath, dayIndex, blockLabel, destina
       cancelled = true;
     };
   }, [place.id, place.name, destination, staticPhotos]);
+
+  useEffect(() => {
+    setAboutText(staticAbout);
+  }, [place.id, staticAbout]);
+
+  useEffect(() => {
+    if (staticAbout || !destination) return;
+    let cancelled = false;
+    const params = new URLSearchParams({
+      name: place.name,
+      destination,
+      locale,
+    });
+    fetch(`/api/places/about?${params}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data: { about?: { en: string; zh: string } } | null) => {
+        if (cancelled || !data?.about) return;
+        setAboutText(data.about);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [place.id, place.name, destination, locale, staticAbout]);
   const names = placeNames(place);
   const title = locale === "zh" ? names.zh : names.en;
   const subtitle = locale === "zh" ? names.en : names.zh;
@@ -234,10 +259,10 @@ export function PlaceDetailView({ place, basePath, dayIndex, blockLabel, destina
                 </div>
               )}
 
-              {about && (
+              {aboutText && (
                 <section>
                   <h2 className="text-lg font-bold text-[#1c1917]">{t("placeDetail.about")}</h2>
-                  <p className="mt-2 text-sm leading-relaxed text-[#333]">{about[locale]}</p>
+                  <p className="mt-2 text-sm leading-relaxed text-[#333]">{aboutText[locale]}</p>
                 </section>
               )}
 
