@@ -16,3 +16,17 @@ export function findPlaceInTrip(
   }
   return undefined;
 }
+
+export function collectAllPlacesFromTrip(trip: Trip): Place[] {
+  const byId = new Map<string, Place>();
+  for (const day of trip.days) {
+    for (const block of day.blocks) {
+      if (block.status === "skipped") continue;
+      for (const p of block.suggestions) byId.set(p.id, p);
+      const selected = getSelectedPlace(block);
+      if (selected) byId.set(selected.id, selected);
+      if (block.backupPlace) byId.set(block.backupPlace.id, block.backupPlace);
+    }
+  }
+  return [...byId.values()];
+}

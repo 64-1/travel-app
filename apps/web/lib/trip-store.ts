@@ -22,6 +22,9 @@ export function rowToTrip(row: {
   days: string;
   daysGenerated: number;
   shareToken: string | null;
+  placeDetails: string;
+  destinationMedia: string;
+  placeAbout: string;
 }): Trip {
   return {
     id: row.id,
@@ -40,6 +43,9 @@ export function rowToTrip(row: {
     days: parseJson<DayPlan[]>(row.days, []),
     daysGenerated: row.daysGenerated,
     shareToken: row.shareToken ?? undefined,
+    placeDetails: parseJson(row.placeDetails, {}),
+    destinationMedia: parseJson(row.destinationMedia, undefined),
+    placeAbout: parseJson(row.placeAbout, {}),
   };
 }
 
@@ -69,6 +75,9 @@ export async function saveTrip(trip: Trip): Promise<Trip> {
       days: JSON.stringify(trip.days),
       daysGenerated: trip.daysGenerated,
       shareToken: trip.shareToken,
+      placeDetails: JSON.stringify(trip.placeDetails ?? {}),
+      destinationMedia: JSON.stringify(trip.destinationMedia ?? {}),
+      placeAbout: JSON.stringify(trip.placeAbout ?? {}),
     },
     update: {
       destination: trip.destination,
@@ -82,6 +91,9 @@ export async function saveTrip(trip: Trip): Promise<Trip> {
       days: JSON.stringify(trip.days),
       daysGenerated: trip.daysGenerated,
       shareToken: trip.shareToken,
+      placeDetails: JSON.stringify(trip.placeDetails ?? {}),
+      destinationMedia: JSON.stringify(trip.destinationMedia ?? {}),
+      placeAbout: JSON.stringify(trip.placeAbout ?? {}),
     },
   });
   return rowToTrip(row);

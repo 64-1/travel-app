@@ -20,6 +20,9 @@ model Trip {
   days           String   @default("[]")
   daysGenerated  Int      @default(0)
   shareToken     String?  @unique
+  placeDetails   String   @default("{}")
+  destinationMedia String @default("{}")
+  placeAbout     String   @default("{}")
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 }

@@ -8,6 +8,8 @@ import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { useI18n } from "@/lib/i18n/context";
 import { dayLabel, tripDurationLabel } from "@/lib/format";
 import { SHANGHAI_HERO_VIDEO } from "@/lib/demo/place-images";
+import { getTripHeroConfig } from "@/lib/trip-hero";
+import { destinationDisplayName } from "@/lib/destinations/registry";
 import { ShareHeroMedia } from "@/components/ShareHeroMedia";
 import { shareShellWidth } from "@/lib/share-layout";
 import { useEditableTripOptional } from "@/lib/editable-trip-context";
@@ -38,8 +40,9 @@ export function TripShareShell({ trip, basePath, mode = "share", children }: Pro
   const { t, locale } = useI18n();
   const editableCtx = useEditableTripOptional();
   const duration = tripDurationLabel(trip.startDate, trip.endDate, locale);
-  const destinationLabel = locale === "zh" ? "上海" : trip.destination;
-  const tripTitle = locale === "zh" ? "上海之旅" : "Shanghai Trip";
+  const destinationLabel = destinationDisplayName(trip.destination, locale, trip.id);
+  const tripTitle = t("share.tripTitle", { destination: destinationLabel });
+  const heroConfig = getTripHeroConfig(trip);
   const isMapPage = pathname.endsWith("/map");
   const isPlacePage = pathname.includes("/place/");
 
@@ -88,7 +91,7 @@ export function TripShareShell({ trip, basePath, mode = "share", children }: Pro
         <div className={cn("pt-4", shellWidth)}>
           <div className="share-card relative aspect-[21/9] max-h-44 w-full overflow-hidden sm:max-h-52 lg:max-h-64 lg:aspect-[2.6/1]">
             <ShareHeroMedia
-              config={SHANGHAI_HERO_VIDEO}
+              config={heroConfig}
               alt={tripTitle}
               className="absolute inset-0 h-full w-full object-cover"
             />

@@ -130,6 +130,12 @@ export default function DayDetailPage() {
           <span className="rounded-full bg-muted px-3 py-1 font-medium">
             {t("trip.stopsConfirmed", { confirmed, total: active })}
           </span>
+          <Link
+            href={`/trip/${id}/itinerary/day/${dayIndex}`}
+            className="text-primary text-sm font-medium hover:underline"
+          >
+            {t("trip.viewPolished")}
+          </Link>
         </div>
       </header>
 

@@ -29,6 +29,28 @@ export type BlockStatus = "suggested" | "confirmed" | "skipped";
 
 export type MealSlot = "breakfast" | "lunch" | "dinner" | "snack";
 
+export interface LocalizedText {
+  en: string;
+  zh: string;
+}
+
+export interface PlaceDetailRecord {
+  address: LocalizedText;
+  phone?: string;
+  website?: string;
+  hoursSummary?: LocalizedText;
+  weeklyHours?: { label: LocalizedText; time: LocalizedText }[];
+  features?: { en: string[]; zh: string[] };
+  relatedInfo?: LocalizedText;
+  gettingThere?: LocalizedText;
+}
+
+export interface DestinationMedia {
+  heroImage?: string;
+  heroVideo?: string;
+  poster?: string;
+}
+
 export interface TripConstraints {
   budget: BudgetLevel;
   dietary?: string[];
@@ -97,6 +119,9 @@ export interface Trip {
   days: DayPlan[];
   daysGenerated: number;
   shareToken?: string;
+  placeDetails?: Record<string, PlaceDetailRecord>;
+  destinationMedia?: DestinationMedia;
+  placeAbout?: Record<string, LocalizedText>;
 }
 
 export type RegenerateReason =

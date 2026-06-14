@@ -10,27 +10,27 @@ import { EditableTripProvider, useEditableTrip } from "@/lib/editable-trip-conte
 import { setTripPlaceContext, clearTripPlaceContext } from "@/lib/trip-place-store";
 
 interface Props {
-  token: string;
+  tripId: string;
   children: React.ReactNode;
 }
 
-function ShareTripShellInner({ token, children }: { token: string; children: React.ReactNode }) {
+function OwnerTripShellInner({ tripId, children }: Props) {
   const { trip } = useEditableTrip();
   return (
-    <TripShareShell trip={trip} basePath={`/share/${token}`} mode="share">
+    <TripShareShell trip={trip} basePath={`/trip/${tripId}/itinerary`} mode="share">
       {children}
     </TripShareShell>
   );
 }
 
-export function ShareTripLayout({ token, children }: Props) {
+export function OwnerTripLayout({ tripId, children }: Props) {
   const { t } = useI18n();
   const [trip, setTrip] = useState<Trip | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
 
   useEffect(() => {
-    fetch(`/api/share/${token}`)
+    fetch(`/api/trips/${tripId}`)
       .then((r) => {
         if (!r.ok) throw new Error("not found");
         return r.json();
@@ -41,9 +41,9 @@ export function ShareTripLayout({ token, children }: Props) {
       })
       .catch(() => setNotFound(true))
       .finally(() => setLoading(false));
-  }, [token]);
 
-  useEffect(() => () => clearTripPlaceContext(), []);
+    return () => clearTripPlaceContext();
+  }, [tripId]);
 
   if (loading) return <PageSkeleton />;
   if (notFound || !trip) {
@@ -57,9 +57,20 @@ export function ShareTripLayout({ token, children }: Props) {
     );
   }
 
+  if (trip.daysGenerated < 1) {
+    return (
+      <main className="mx-auto max-w-2xl px-4 py-12 text-center">
+        <p className="text-muted-foreground">{t("trip.generateFirst")}</p>
+        <Link href={`/trip/${tripId}/generate`} className="text-primary mt-4 inline-block text-sm">
+          {t("trip.generateCta")}
+        </Link>
+      </main>
+    );
+  }
+
   return (
-    <EditableTripProvider tripId={`share-${token}`} initialTrip={trip}>
-      <ShareTripShellInner token={token}>{children}</ShareTripShellInner>
+    <EditableTripProvider tripId={tripId} initialTrip={trip}>
+      <OwnerTripShellInner tripId={tripId}>{children}</OwnerTripShellInner>
     </EditableTripProvider>
   );
 }

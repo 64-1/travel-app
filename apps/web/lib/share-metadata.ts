@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import type { Trip } from "@travel-planner/core";
 import { getTripByShareToken } from "@/lib/trip-store";
-import { SHANGHAI_HERO } from "@/lib/demo/place-images";
+import { getTripOgImage } from "@/lib/trip-hero";
+import { destinationDisplayName } from "@/lib/destinations/registry";
 
 export function getSiteUrl() {
   if (process.env.NEXT_PUBLIC_SITE_URL) return process.env.NEXT_PUBLIC_SITE_URL.replace(/\/$/, "");
@@ -9,11 +10,9 @@ export function getSiteUrl() {
   return "https://travel-app-seven-kappa.vercel.app";
 }
 
-function tripShareTitle(trip: Trip) {
-  if (trip.id === "demo-shanghai" || trip.destination.toLowerCase().includes("shanghai")) {
-    return "上海之旅 · Shanghai Trip";
-  }
-  return `${trip.destination} Trip`;
+function tripShareTitle(trip: Trip, locale: "en" | "zh" = "en") {
+  const name = destinationDisplayName(trip.destination, locale, trip.id);
+  return locale === "zh" ? `${name}之旅` : `${name} Trip`;
 }
 
 function tripShareDescription(trip: Trip) {
@@ -25,7 +24,8 @@ export function metadataForTrip(trip: Trip, path: string): Metadata {
   const title = tripShareTitle(trip);
   const description = tripShareDescription(trip);
   const url = `${getSiteUrl()}${path}`;
-  const images = [{ url: SHANGHAI_HERO, width: 1920, height: 823, alt: trip.destination }];
+  const ogImage = getTripOgImage(trip);
+  const images = [{ url: ogImage, width: 1920, height: 823, alt: trip.destination }];
 
   return {
     title,
@@ -41,7 +41,7 @@ export function metadataForTrip(trip: Trip, path: string): Metadata {
       card: "summary_large_image",
       title,
       description,
-      images: [SHANGHAI_HERO],
+      images: [ogImage],
     },
   };
 }

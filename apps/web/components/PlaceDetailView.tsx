@@ -1,12 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import type { Place } from "@travel-planner/core";
 import { PlacePhotoGallery } from "@/components/PlacePhotoGallery";
 import { SinglePlaceMap } from "@/components/SinglePlaceMap";
 import { getPlaceAbout } from "@/lib/demo/place-about";
-import { getPlaceGallery } from "@/lib/demo/place-galleries";
+import { getPlaceGallery, type GalleryPhoto } from "@/lib/demo/place-galleries";
 import { getPlaceDetails } from "@/lib/demo/place-details";
 import { getMapLinks } from "@/lib/map-links";
 import { useI18n } from "@/lib/i18n/context";
@@ -21,6 +21,7 @@ interface Props {
   basePath: string;
   dayIndex: number;
   blockLabel: string;
+  destination?: string;
 }
 
 function placeNames(place: Place) {
@@ -59,16 +60,53 @@ function HoursSidebar({
   );
 }
 
-export function PlaceDetailView({ place, basePath, dayIndex, blockLabel }: Props) {
+export function PlaceDetailView({ place, basePath, dayIndex, blockLabel, destination }: Props) {
   const { t, locale } = useI18n();
   const [tab, setTab] = useState<Tab>("overview");
   const [saved, setSaved] = useState(false);
   const details = getPlaceDetails(place.id);
   const about = getPlaceAbout(place.id);
-  const photos = getPlaceGallery(place.id, {
-    url: place.imageUrl ?? "",
-    credit: place.imageCredit,
-  });
+  const staticPhotos = useMemo(
+    () =>
+      getPlaceGallery(place.id, {
+        url: place.imageUrl ?? "",
+        credit: place.imageCredit,
+      }),
+    [place.id, place.imageUrl, place.imageCredit]
+  );
+  const [photos, setPhotos] = useState<GalleryPhoto[]>(staticPhotos);
+
+  useEffect(() => {
+    setPhotos(staticPhotos);
+  }, [staticPhotos]);
+
+  useEffect(() => {
+    if (staticPhotos.length > 1 || !destination) return;
+    let cancelled = false;
+    const params = new URLSearchParams({
+      name: place.name,
+      destination,
+      limit: "4",
+    });
+    fetch(`/api/places/gallery?${params}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data: { images?: { url: string; credit: string }[] } | null) => {
+        if (cancelled || !data?.images?.length) return;
+        const seen = new Set(staticPhotos.map((p) => p.url));
+        const extras: GalleryPhoto[] = [];
+        for (const img of data.images) {
+          if (!seen.has(img.url)) {
+            seen.add(img.url);
+            extras.push({ url: img.url, credit: img.credit });
+          }
+        }
+        if (extras.length) setPhotos([...staticPhotos, ...extras]);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [place.id, place.name, destination, staticPhotos]);
   const names = placeNames(place);
   const title = locale === "zh" ? names.zh : names.en;
   const subtitle = locale === "zh" ? names.en : names.zh;

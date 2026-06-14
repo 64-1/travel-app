@@ -1,5 +1,7 @@
 /** Extended descriptions researched from travel guides, maps & community posts */
 
+import { getTripStoredPlaceAbout } from "@/lib/trip-place-store";
+
 export const PLACE_ABOUT: Record<string, { en: string; zh: string }> = {
   "sh-disney": {
     en: "Shanghai Disney Resort opened in 2016 as mainland China's first Disney park. Highlights include the TRON Lightcycle Power Run coaster, Zootopia-themed land, Pirates of the Caribbean: Battle for the Sunken Treasure, and evening castle projections. Download the official app for wait times, mobile order food, and Genie+ options.",
@@ -80,5 +82,5 @@ export const PLACE_ABOUT: Record<string, { en: string; zh: string }> = {
 };
 
 export function getPlaceAbout(placeId: string) {
-  return PLACE_ABOUT[placeId];
+  return getTripStoredPlaceAbout(placeId) ?? PLACE_ABOUT[placeId];
 }

@@ -113,11 +113,7 @@ export async function findPlaceImage(
     return { url: opts.ogImage, credit: "Source link" };
   }
 
-  const queries = [
-    `${name} ${destination}`,
-    `${name} Shanghai`,
-    name,
-  ];
+  const queries = [`${name} ${destination}`, name];
 
   for (const q of queries) {
     const commons = await searchWikimediaCommons(q);
@@ -155,4 +151,23 @@ export async function attachPlaceImage(
     imageUrl: found.url,
     imageCredit: found.credit,
   };
+}
+
+export async function findPlaceGalleryImages(
+  name: string,
+  destination: string,
+  limit = 4
+): Promise<{ url: string; credit: string }[]> {
+  const results: { url: string; credit: string }[] = [];
+  const queries = [`${name} ${destination}`, name];
+
+  for (const q of queries) {
+    if (results.length >= limit) break;
+    const found = await searchWikimediaCommons(q);
+    if (found && !results.some((r) => r.url === found.url)) {
+      results.push(found);
+    }
+  }
+
+  return results.slice(0, limit);
 }

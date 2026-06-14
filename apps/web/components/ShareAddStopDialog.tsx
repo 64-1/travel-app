@@ -5,6 +5,7 @@ import type { Place } from "@travel-planner/core";
 import type { PlaceDetailRecord } from "@/lib/demo/place-details";
 import { SharePlaceImage } from "@/components/SharePlaceImage";
 import { useI18n } from "@/lib/i18n/context";
+import { destinationDisplayName } from "@/lib/destinations/registry";
 import type { TranslationKey } from "@/lib/i18n";
 import { Loader2, MapPin, Plus, Search, X } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -140,7 +141,11 @@ export function ShareAddStopDialog({
                   : "border-transparent text-[var(--share-muted)]"
               )}
             >
-              {id === "catalog" ? t("share.addFromList") : t("share.searchPlace")}
+              {id === "catalog"
+                ? t("share.addFromList", {
+                    destination: destinationDisplayName(destination, locale),
+                  })
+                : t("share.searchPlace")}
             </button>
           ))}
         </div>

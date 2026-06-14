@@ -1,15 +1,8 @@
+import type { LocalizedText, PlaceDetailRecord } from "@travel-planner/core";
 import { getRuntimePlaceDetails } from "@/lib/demo/runtime-place-details";
+import { getTripStoredPlaceDetails } from "@/lib/trip-place-store";
 
-export interface PlaceDetailRecord {
-  address: { en: string; zh: string };
-  phone?: string;
-  website?: string;
-  hoursSummary?: { en: string; zh: string };
-  weeklyHours?: { label: { en: string; zh: string }; time: { en: string; zh: string } }[];
-  features?: { en: string[]; zh: string[] };
-  relatedInfo?: { en: string; zh: string };
-  gettingThere?: { en: string; zh: string };
-}
+export type { PlaceDetailRecord } from "@travel-planner/core";
 
 export const SHANGHAI_PLACE_DETAILS: Record<string, PlaceDetailRecord> = {
   "sh-disney": {
@@ -435,5 +428,9 @@ export const SHANGHAI_PLACE_DETAILS: Record<string, PlaceDetailRecord> = {
 };
 
 export function getPlaceDetails(placeId: string): PlaceDetailRecord | undefined {
-  return getRuntimePlaceDetails(placeId) ?? SHANGHAI_PLACE_DETAILS[placeId];
+  return (
+    getRuntimePlaceDetails(placeId) ??
+    getTripStoredPlaceDetails(placeId) ??
+    SHANGHAI_PLACE_DETAILS[placeId]
+  );
 }

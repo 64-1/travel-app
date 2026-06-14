@@ -2,7 +2,11 @@ import type { Place } from "@travel-planner/core";
 import { generateId } from "@/lib/utils";
 import { fetchPageMeta } from "@/lib/enrich";
 import { createPlaceFromInput } from "@/lib/place-enrich-ai";
-import { SHANGHAI_PLACE_CATALOG } from "@/lib/demo/shanghai-trip";
+import {
+  getDestinationCatalog,
+  inferCountryCode,
+  matchDestinationCatalog,
+} from "@/lib/destinations/registry";
 import { getPlaceDetails, type PlaceDetailRecord } from "@/lib/demo/place-details";
 import { attachPlaceImage } from "@/lib/place-image-search";
 
@@ -10,39 +14,6 @@ export interface ResolvedPlace {
   place: Place;
   details?: PlaceDetailRecord;
   matchedFrom: "catalog" | "geocode" | "url" | "ai";
-}
-
-function normalize(s: string) {
-  return s
-    .toLowerCase()
-    .replace(/\s+/g, "")
-    .replace(/[·・\-_]/g, "");
-}
-
-function isShanghaiDestination(destination?: string) {
-  if (!destination) return false;
-  const d = destination.toLowerCase();
-  return d.includes("shanghai") || destination.includes("上海");
-}
-
-export function matchShanghaiCatalog(query: string): Place | undefined {
-  const q = normalize(query);
-  if (!q) return undefined;
-
-  for (const place of SHANGHAI_PLACE_CATALOG) {
-    const candidates = [
-      place.name,
-      place.nameI18n?.en,
-      place.nameI18n?.zh,
-      place.neighborhood,
-    ].filter(Boolean) as string[];
-
-    for (const c of candidates) {
-      const n = normalize(c);
-      if (n === q || n.includes(q) || q.includes(n)) return place;
-    }
-  }
-  return undefined;
 }
 
 function parseGoogleMapsUrl(url: string): {
@@ -81,22 +52,26 @@ interface NominatimHit {
 
 async function geocodePlace(
   name: string,
-  destination: string
+  destination: string,
+  country?: string
 ): Promise<{ lat: number; lng: number; address: string; neighborhood?: string } | null> {
-  const q = `${name}, ${destination}, China`;
+  const countrySuffix = country ? `, ${country}` : "";
+  const q = `${name}, ${destination}${countrySuffix}`;
+  const countryCode = inferCountryCode(country, destination);
+
   const params = new URLSearchParams({
     q,
     format: "json",
     limit: "1",
     addressdetails: "1",
-    countrycodes: "cn",
   });
+  if (countryCode) params.set("countrycodes", countryCode);
 
   try {
     const res = await fetch(
       `https://nominatim.openstreetmap.org/search?${params.toString()}`,
       {
-        headers: { "User-Agent": "TravelPlannerApp/1.0 (travel-planner demo)" },
+        headers: { "User-Agent": "TravelPlannerApp/1.0 (travel-planner)" },
         signal: AbortSignal.timeout(8000),
       }
     );
@@ -126,14 +101,15 @@ function catalogDetails(place: Place): PlaceDetailRecord | undefined {
 
 export async function resolvePlaceInput(
   rawInput: string,
-  destination = "Shanghai",
-  locale: "en" | "zh" = "en"
+  destination = "Unknown",
+  locale: "en" | "zh" = "en",
+  country?: string
 ): Promise<ResolvedPlace> {
   const trimmed = rawInput.trim();
   const isUrl = /^https?:\/\//i.test(trimmed);
 
-  if (isShanghaiDestination(destination) && !isUrl) {
-    const catalogHit = matchShanghaiCatalog(trimmed);
+  if (!isUrl) {
+    const catalogHit = matchDestinationCatalog(destination, trimmed);
     if (catalogHit) {
       return {
         place: { ...catalogHit },
@@ -162,7 +138,7 @@ export async function resolvePlaceInput(
     if (meta.image) ogImage = meta.image;
   }
 
-  const geo = await geocodePlace(searchName, destination);
+  const geo = await geocodePlace(searchName, destination, country);
   if (geo) matchedFrom = "geocode";
 
   const base = await createPlaceFromInput(trimmed, destination, locale);
@@ -196,24 +172,24 @@ export async function resolvePlaceInput(
         zh: `通过地图搜索于${destination}找到。`,
       },
       gettingThere: {
-        en: "Use metro or taxi to reach this area.",
-        zh: "建议乘地铁或出租车前往。",
+        en: "Use public transit or taxi to reach this area.",
+        zh: "建议乘公共交通或出租车前往。",
       },
     };
   }
 
-  if (isShanghaiDestination(destination)) {
-    const catalogHit = matchShanghaiCatalog(searchName);
-    if (catalogHit) {
-      return {
-        place: { ...catalogHit },
-        details: catalogDetails(catalogHit),
-        matchedFrom: "catalog",
-      };
-    }
+  const catalogHit = matchDestinationCatalog(destination, searchName);
+  if (catalogHit) {
+    return {
+      place: { ...catalogHit },
+      details: catalogDetails(catalogHit),
+      matchedFrom: "catalog",
+    };
   }
 
   const withImage = await attachPlaceImage(place, searchName, destination, ogImage);
 
   return { place: withImage, details, matchedFrom };
 }
+
+export { getDestinationCatalog };

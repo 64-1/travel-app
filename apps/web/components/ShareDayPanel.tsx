@@ -8,7 +8,8 @@ import { ShareTripMap } from "@/components/ShareTripMap";
 import { ShareDayNav } from "@/components/ShareDayNav";
 import { ShareAddStopDialog } from "@/components/ShareAddStopDialog";
 import { useEditableTrip } from "@/lib/editable-trip-context";
-import { SHANGHAI_PLACE_CATALOG } from "@/lib/demo/shanghai-trip";
+import { getDestinationCatalog } from "@/lib/destinations/registry";
+import { collectAllPlacesFromTrip } from "@/lib/demo/trip-places";
 import { useConfirmDialog } from "@/lib/use-confirm-dialog";
 import { useI18n } from "@/lib/i18n/context";
 import { dayLabel } from "@/lib/format";
@@ -27,7 +28,9 @@ export function ShareDayPanel({ day, trip, basePath }: DayPanelProps) {
   const { confirm, dialog: confirmDialog } = useConfirmDialog();
 
   const blocks = day.blocks.filter((b) => b.status !== "skipped");
-  const catalog = trip.id === "demo-shanghai" ? SHANGHAI_PLACE_CATALOG : [];
+  const seedCatalog = getDestinationCatalog(trip.destination, trip.id);
+  const catalog =
+    seedCatalog.length > 0 ? seedCatalog : collectAllPlacesFromTrip(trip);
 
   const existingPlaceIds = useMemo(() => {
     const ids = new Set<string>();

@@ -32,6 +32,30 @@ const localizedTextSchema = z.object({
   zh: z.string(),
 });
 
+const placeDetailRecordSchema = z.object({
+  address: localizedTextSchema,
+  phone: z.string().optional(),
+  website: z.string().optional(),
+  hoursSummary: localizedTextSchema.optional(),
+  weeklyHours: z
+    .array(
+      z.object({
+        label: localizedTextSchema,
+        time: localizedTextSchema,
+      })
+    )
+    .optional(),
+  features: z.object({ en: z.array(z.string()), zh: z.array(z.string()) }).optional(),
+  relatedInfo: localizedTextSchema.optional(),
+  gettingThere: localizedTextSchema.optional(),
+});
+
+const destinationMediaSchema = z.object({
+  heroImage: z.string().optional(),
+  heroVideo: z.string().optional(),
+  poster: z.string().optional(),
+});
+
 export const placeSchema = z.object({
   id: z.string(),
   name: z.string(),
@@ -92,6 +116,9 @@ export const tripSchema = z.object({
   days: z.array(dayPlanSchema),
   daysGenerated: z.number().int().min(0),
   shareToken: z.string().optional(),
+  placeDetails: z.record(placeDetailRecordSchema).optional(),
+  destinationMedia: destinationMediaSchema.optional(),
+  placeAbout: z.record(localizedTextSchema).optional(),
 });
 
 export const createTripSchema = z.object({

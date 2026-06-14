@@ -30,6 +30,7 @@ export default function SharePlacePage() {
       basePath={`/share/${token}`}
       dayIndex={found.dayIndex}
       blockLabel={found.label}
+      destination={trip.destination}
     />
   );
 }

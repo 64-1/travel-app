@@ -1,0 +1,4 @@
+-- AlterTable
+ALTER TABLE "Trip" ADD COLUMN "placeDetails" TEXT NOT NULL DEFAULT '{}';
+ALTER TABLE "Trip" ADD COLUMN "destinationMedia" TEXT NOT NULL DEFAULT '{}';
+ALTER TABLE "Trip" ADD COLUMN "placeAbout" TEXT NOT NULL DEFAULT '{}';
