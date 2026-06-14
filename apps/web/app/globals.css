@@ -2,15 +2,15 @@
 @import "leaflet/dist/leaflet.css";
 
 @theme {
-  --color-background: #f8f7f4;
+  --color-background: #faf8f5;
   --color-foreground: #1c1917;
-  --color-primary: #2563eb;
+  --color-primary: #9b2d30;
   --color-primary-foreground: #ffffff;
   --color-muted: #f0eeea;
-  --color-muted-foreground: #78716c;
+  --color-muted-foreground: #6b6560;
   --color-card: #ffffff;
-  --color-border: #e7e5e4;
-  --color-accent: #eff6ff;
+  --color-border: #ebe8e3;
+  --color-accent: #fdf2f2;
   --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
 }
 

@@ -42,7 +42,11 @@ Vercel runs `prisma migrate deploy` during build to create tables automatically.
 
 ## 4. Redeploy after setting `NEXT_PUBLIC_BASE_URL`
 
-Share links use this URL. Set it to your production domain, then redeploy once.
+Share links and Open Graph metadata use this URL (via `getSiteUrl()` in `apps/web/lib/share-metadata.ts`). Set it to your production domain, then redeploy once.
+
+## 5. Trip generation timeouts
+
+Generate/regenerate routes set `maxDuration = 60` (requires **Vercel Pro** for 60s; Hobby limit is 10s). About-text enrichment is capped at 6 places per request and runs in parallel (pool of 5).
 
 ## Local dev with Postgres
 

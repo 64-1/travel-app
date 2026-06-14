@@ -1,4 +1,4 @@
-import { TripShell } from "@/components/TripShell";
+import { TripLayoutRouter } from "@/components/TripLayoutRouter";
 
 export default async function TripLayout({
   children,
@@ -8,5 +8,5 @@ export default async function TripLayout({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  return <TripShell tripId={id}>{children}</TripShell>;
+  return <TripLayoutRouter tripId={id}>{children}</TripLayoutRouter>;
 }

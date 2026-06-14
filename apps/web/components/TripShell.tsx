@@ -25,11 +25,14 @@ export function TripShell({ tripId, children }: Props) {
   }, [tripId]);
 
   return (
-    <div className="min-h-dvh pb-8">
-      <nav className="sticky top-0 z-40 border-b border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80">
+    <div className="share-page min-h-dvh pb-8">
+      <nav className="sticky top-0 z-40 border-b border-[var(--share-border)] bg-[var(--share-card)]/95 backdrop-blur supports-[backdrop-filter]:bg-[var(--share-card)]/80">
         <div className="mx-auto max-w-4xl px-4 py-3">
           <div className="flex items-center justify-between gap-4 mb-3">
-            <Link href="/" className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
+            <Link
+              href="/"
+              className="flex items-center gap-2 text-sm text-[var(--share-muted)] hover:text-[var(--share-accent)] share-focus rounded-lg"
+            >
               <MapPin className="h-4 w-4" />
               <span>{t("app.name")}</span>
             </Link>
@@ -42,7 +45,7 @@ export function TripShell({ tripId, children }: Props) {
               daysCount={Math.max(trip.daysGenerated, trip.days.length)}
             />
           ) : (
-            <div className="h-16 animate-pulse rounded-lg bg-muted" />
+            <div className="h-16 animate-pulse rounded-lg bg-[var(--share-bg)]" />
           )}
         </div>
       </nav>

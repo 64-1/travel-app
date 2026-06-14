@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getTrip, saveTrip } from "@/lib/trip-store";
 import { generateId } from "@/lib/utils";
+import { getSiteUrl } from "@/lib/share-metadata";
 
 export async function GET(
   _request: Request,
@@ -15,7 +16,7 @@ export async function GET(
     await saveTrip(trip);
   }
 
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? "http://localhost:3000";
+  const baseUrl = getSiteUrl();
   return NextResponse.json({
     shareToken: trip.shareToken,
     shareUrl: `${baseUrl}/share/${trip.shareToken}`,

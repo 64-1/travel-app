@@ -37,7 +37,7 @@ export default function GeneratePage() {
           const err = await res.json();
           throw new Error(err.error ?? "Generation failed");
         }
-        router.push(`/trip/${id}/itinerary/day/0`);
+        router.push(`/trip/${id}/day/0`);
       } catch (e) {
         setError(e instanceof Error ? e.message : t("generate.errorGeneric"));
       }

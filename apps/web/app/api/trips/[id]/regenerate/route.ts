@@ -5,6 +5,8 @@ import { regenerateScope } from "@/lib/ai/pipeline";
 import { enrichTripPlaces } from "@/lib/enrich-trip-places";
 import { enrichTripPlaceAbout } from "@/lib/place-about-fetch";
 
+export const maxDuration = 60;
+
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> }

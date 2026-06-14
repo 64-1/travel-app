@@ -1,11 +1,10 @@
-"use client";
+import { redirect } from "next/navigation";
 
-import { useParams } from "next/navigation";
-import { ShareMapPanel } from "@/components/ShareDayPanel";
-import { useEditableTrip } from "@/lib/editable-trip-context";
-
-export default function OwnerItineraryMapPage() {
-  const { id } = useParams<{ id: string }>();
-  const { trip } = useEditableTrip();
-  return <ShareMapPanel trip={trip} basePath={`/trip/${id}/itinerary`} />;
+export default async function ItineraryMapRedirect({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = await params;
+  redirect(`/trip/${id}/map`);
 }

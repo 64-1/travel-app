@@ -1,10 +1,10 @@
 import { redirect } from "next/navigation";
 
-export default async function OwnerItineraryIndex({
+export default async function ItineraryRedirect({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  redirect(`/trip/${id}/itinerary/day/0`);
+  redirect(`/trip/${id}/day/0`);
 }

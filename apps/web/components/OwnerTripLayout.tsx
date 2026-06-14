@@ -17,7 +17,7 @@ interface Props {
 function OwnerTripShellInner({ tripId, children }: Props) {
   const { trip } = useEditableTrip();
   return (
-    <TripShareShell trip={trip} basePath={`/trip/${tripId}/itinerary`} mode="share">
+    <TripShareShell trip={trip} basePath={`/trip/${tripId}`} mode="owner">
       {children}
     </TripShareShell>
   );
@@ -69,7 +69,7 @@ export function OwnerTripLayout({ tripId, children }: Props) {
   }
 
   return (
-    <EditableTripProvider tripId={tripId} initialTrip={trip}>
+    <EditableTripProvider tripId={tripId} initialTrip={trip} persist="server">
       <OwnerTripShellInner tripId={tripId}>{children}</OwnerTripShellInner>
     </EditableTripProvider>
   );

@@ -5,9 +5,11 @@ import { getTripOgImage } from "@/lib/trip-hero";
 import { destinationDisplayName } from "@/lib/destinations/registry";
 
 export function getSiteUrl() {
-  if (process.env.NEXT_PUBLIC_SITE_URL) return process.env.NEXT_PUBLIC_SITE_URL.replace(/\/$/, "");
+  if (process.env.NEXT_PUBLIC_BASE_URL) {
+    return process.env.NEXT_PUBLIC_BASE_URL.replace(/\/$/, "");
+  }
   if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
-  return "https://travel-app-seven-kappa.vercel.app";
+  return "http://localhost:3000";
 }
 
 function tripShareTitle(trip: Trip, locale: "en" | "zh" = "en") {

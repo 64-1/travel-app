@@ -46,8 +46,8 @@ export function TripNav({ tripId, destination, daysCount }: Props) {
               className={cn(
                 "flex shrink-0 items-center gap-1.5 rounded-full px-3 py-2 text-sm font-medium transition-colors",
                 active
-                  ? "bg-primary text-white shadow-sm"
-                  : "bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground"
+                  ? "bg-[var(--share-accent)] text-white shadow-sm"
+                  : "bg-[var(--share-bg)] text-[var(--share-muted)] hover:bg-[var(--share-accent-soft)] hover:text-[var(--share-accent)]"
               )}
             >
               <Icon className="h-3.5 w-3.5" />

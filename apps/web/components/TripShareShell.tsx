@@ -7,13 +7,12 @@ import { DM_Sans, Noto_Serif_SC } from "next/font/google";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { useI18n } from "@/lib/i18n/context";
 import { dayLabel, tripDurationLabel } from "@/lib/format";
-import { SHANGHAI_HERO_VIDEO } from "@/lib/demo/place-images";
 import { getTripHeroConfig } from "@/lib/trip-hero";
 import { destinationDisplayName } from "@/lib/destinations/registry";
 import { ShareHeroMedia } from "@/components/ShareHeroMedia";
 import { shareShellWidth } from "@/lib/share-layout";
 import { useEditableTripOptional } from "@/lib/editable-trip-context";
-import { Map, Sparkles } from "lucide-react";
+import { Map, Sparkles, LayoutGrid, Heart } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const dmSans = DM_Sans({ subsets: ["latin"], variable: "--font-share-sans" });
@@ -26,13 +25,18 @@ const notoSerifSc = Noto_Serif_SC({
 interface Props {
   trip: Trip;
   basePath: string;
-  mode?: "share" | "demo";
+  mode?: "share" | "demo" | "owner";
   children: React.ReactNode;
 }
 
 function dayStopCount(trip: Trip, dayIndex: number) {
   const day = trip.days.find((d) => d.dayIndex === dayIndex);
   return day?.blocks.filter((b) => b.status !== "skipped").length ?? 0;
+}
+
+function tripIdFromBasePath(basePath: string) {
+  const m = basePath.match(/^\/trip\/([^/]+)/);
+  return m?.[1];
 }
 
 export function TripShareShell({ trip, basePath, mode = "share", children }: Props) {
@@ -51,6 +55,8 @@ export function TripShareShell({ trip, basePath, mode = "share", children }: Pro
   }
 
   const shellWidth = shareShellWidth(isPlacePage);
+  const ownerTripId = mode === "owner" ? tripIdFromBasePath(basePath) : undefined;
+  const showShareCopy = mode === "share";
 
   return (
     <div
@@ -72,14 +78,14 @@ export function TripShareShell({ trip, basePath, mode = "share", children }: Pro
           </Link>
           <div className="flex shrink-0 flex-col items-end gap-1">
             <LanguageSwitcher compact />
-            {editableCtx?.isDirty && (
+            {editableCtx?.persistMode === "local" && editableCtx?.isDirty && (
               <p className="text-[10px] text-[var(--share-muted)]">{t("share.editedLocally")}</p>
             )}
           </div>
         </div>
       </header>
 
-      {mode === "share" && !isPlacePage && (
+      {showShareCopy && !isPlacePage && (
         <div className={cn("border-b border-[var(--share-border)] bg-[var(--share-accent-soft)]/60", shellWidth)}>
           <p className="py-2 text-center text-xs text-[var(--share-muted)] sm:text-left">
             {t("share.personalCopyHint")}
@@ -108,7 +114,7 @@ export function TripShareShell({ trip, basePath, mode = "share", children }: Pro
                 {t("share.heroSubtitle", { days: duration, destination: destinationLabel })}
               </p>
             </div>
-            {mode === "share" && (
+            {showShareCopy && (
               <p className="absolute right-14 top-3 rounded-full bg-black/45 px-2.5 py-1 text-[10px] font-medium uppercase tracking-wide text-white/90 backdrop-blur-sm">
                 {t("share.personalCopy")}
               </p>
@@ -125,6 +131,24 @@ export function TripShareShell({ trip, basePath, mode = "share", children }: Pro
             className="flex gap-1.5 overflow-x-auto py-2.5 scrollbar-none sm:gap-2"
             role="tablist"
           >
+            {ownerTripId && (
+              <>
+                <Link
+                  href={`/trip/${ownerTripId}`}
+                  className="share-focus flex shrink-0 items-center gap-1.5 rounded-full bg-[var(--share-bg)] px-3.5 py-2 text-sm font-medium text-[var(--share-muted)] transition-all hover:bg-[var(--share-accent-soft)] hover:text-[var(--share-accent)] sm:px-4"
+                >
+                  <LayoutGrid className="h-3.5 w-3.5" />
+                  {t("nav.overview")}
+                </Link>
+                <Link
+                  href={`/trip/${ownerTripId}/wishlist`}
+                  className="share-focus flex shrink-0 items-center gap-1.5 rounded-full bg-[var(--share-bg)] px-3.5 py-2 text-sm font-medium text-[var(--share-muted)] transition-all hover:bg-[var(--share-accent-soft)] hover:text-[var(--share-accent)] sm:px-4"
+                >
+                  <Heart className="h-3.5 w-3.5" />
+                  {t("nav.savedSpots")}
+                </Link>
+              </>
+            )}
             {trip.days.map((day) => {
               const active = isDayActive(day.dayIndex);
               const stops = dayStopCount(trip, day.dayIndex);

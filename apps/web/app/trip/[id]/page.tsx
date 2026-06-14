@@ -5,8 +5,6 @@ import { useParams } from "next/navigation";
 import type { Trip } from "@travel-planner/core";
 import { countTripDays } from "@travel-planner/core";
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ExportTrip } from "@/components/ExportTrip";
 import { NextStepCard } from "@/components/NextStepCard";
 import { TripProgress } from "@/components/TripProgress";
@@ -16,6 +14,7 @@ import { useToast } from "@/components/Toast";
 import { useI18n } from "@/lib/i18n/context";
 import { formatDateRange, dayLabel } from "@/lib/format";
 import { getPaceLabel } from "@/lib/i18n";
+import { Button } from "@/components/ui/button";
 import { Calendar, MapPin } from "lucide-react";
 
 export default function TripOverviewPage() {
@@ -74,12 +73,12 @@ export default function TripOverviewPage() {
       <ServiceWorkerRegister />
       <TripProgress current={hasAllDays ? "complete" : hasDay1 ? "day1" : "wishlist"} />
 
-      <header className="space-y-1">
-        <h1 className="text-2xl font-bold flex items-center gap-2">
-          <MapPin className="h-6 w-6 text-primary" />
+      <header className="share-card p-5 space-y-1">
+        <h1 className="text-2xl font-bold flex items-center gap-2 font-[family-name:var(--font-share-serif)]">
+          <MapPin className="h-6 w-6 text-[var(--share-accent)]" />
           {trip.destination}
         </h1>
-        <p className="text-muted-foreground flex items-center gap-1.5 text-sm">
+        <p className="text-[var(--share-muted)] flex items-center gap-1.5 text-sm">
           <Calendar className="h-4 w-4" />
           {formatDateRange(trip.startDate, trip.endDate, locale)} · {getPaceLabel(locale, trip.pace)} · {totalDays} {locale === "zh" ? "天" : totalDays === 1 ? "day" : "days"}
         </p>
@@ -91,9 +90,9 @@ export default function TripOverviewPage() {
             <span className="text-muted-foreground">{t("trip.progress")}</span>
             <span>{t("trip.daysPlanned", { generated: trip.daysGenerated, total: totalDays })}</span>
           </div>
-          <div className="h-2 rounded-full bg-muted overflow-hidden">
+          <div className="h-2 rounded-full bg-[var(--share-bg)] overflow-hidden">
             <div
-              className="h-full rounded-full bg-primary transition-all duration-500"
+              className="h-full rounded-full bg-[var(--share-accent)] transition-all duration-500"
               style={{ width: `${progressPercent}%` }}
             />
           </div>
@@ -122,38 +121,44 @@ export default function TripOverviewPage() {
               const confirmed = day.blocks.filter((b) => b.status === "confirmed").length;
               const total = day.blocks.filter((b) => b.status !== "skipped").length;
               return (
-                <Card key={day.dayIndex} className="shadow-sm hover:shadow-md transition-shadow">
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-base">
-                      {dayLabel(day.dayIndex, locale)}
+                <div key={day.dayIndex} className="share-card overflow-hidden transition-shadow hover:shadow-md">
+                  <div className="h-1 bg-gradient-to-r from-[var(--share-accent)] via-[#C9A227] to-[var(--share-accent)]" />
+                  <div className="p-5 space-y-3">
+                    <div>
+                      <h3 className="font-[family-name:var(--font-share-serif)] text-base font-bold">
+                        {dayLabel(day.dayIndex, locale)}
+                      </h3>
                       {day.theme && (
-                        <span className="block font-normal text-muted-foreground text-sm mt-0.5">
-                          {day.theme}
-                        </span>
+                        <p className="text-sm text-[var(--share-muted)] mt-0.5">{day.theme}</p>
                       )}
-                    </CardTitle>
-                    {day.date && <p className="text-xs text-muted-foreground">{day.date}</p>}
-                  </CardHeader>
-                  <CardContent className="space-y-3">
+                      {day.date && <p className="text-xs text-[var(--share-muted)] mt-1">{day.date}</p>}
+                    </div>
                     {day.neighborhoods.length > 0 && (
-                      <p className="text-xs text-primary font-medium">
+                      <p className="text-xs font-medium text-[var(--share-accent)]">
                         {day.neighborhoods.join(" → ")}
                       </p>
                     )}
-                    <p className="text-sm text-muted-foreground">
+                    <p className="text-sm text-[var(--share-muted)]">
                       {t("trip.stopsCount", { count: total })}
                       {confirmed > 0 && ` · ${confirmed} ${t("common.confirmed")}`}
                     </p>
                     <div className="flex gap-2">
                       <Link href={`/trip/${id}/day/${day.dayIndex}`} className="flex-1">
-                        <Button size="sm" className="w-full">{t("trip.viewEdit")}</Button>
+                        <Button size="sm" className="w-full share-btn-primary rounded-full border-0">
+                          {t("trip.viewTrip")}
+                        </Button>
                       </Link>
-                      <Button variant="ghost" size="sm" onClick={() => duplicateDay(day.dayIndex)}>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="rounded-full"
+                        onClick={() => duplicateDay(day.dayIndex)}
+                      >
                         {t("common.copy")}
                       </Button>
                     </div>
-                  </CardContent>
-                </Card>
+                  </div>
+                </div>
               );
             })}
           </div>

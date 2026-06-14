@@ -98,7 +98,7 @@ export default function HomePage() {
       : null;
 
   return (
-    <main className="min-h-dvh">
+    <main className="share-page min-h-dvh">
       <ServiceWorkerRegister />
       <div className="mx-auto max-w-2xl px-4 py-8 sm:py-12">
         <div className="flex justify-end mb-4">
@@ -115,7 +115,7 @@ export default function HomePage() {
 
         <TripProgress current="setup" className="mb-8 px-2" />
 
-        <Card className="shadow-sm">
+        <Card className="share-card shadow-sm border-[var(--share-border)]">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Sparkles className="h-5 w-5 text-primary" />

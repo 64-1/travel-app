@@ -31,15 +31,15 @@ export function NextStepCard({
 
   if (hasAllDays) {
     return (
-      <div className="rounded-xl border border-green-200 bg-green-50 p-5">
+      <div className="rounded-xl border border-[var(--share-green-soft)] bg-[var(--share-green-soft)] p-5">
         <div className="flex items-start gap-3">
-          <Sparkles className="h-5 w-5 text-green-600 shrink-0 mt-0.5" />
+          <Sparkles className="h-5 w-5 text-[var(--share-green)] shrink-0 mt-0.5" />
           <div className="flex-1">
-            <p className="font-semibold text-green-900">{t("nextStep.readyTitle")}</p>
-            <p className="text-sm text-green-800 mt-1">{t("nextStep.readyDesc")}</p>
+            <p className="font-semibold text-[#006644]">{t("nextStep.readyTitle")}</p>
+            <p className="text-sm text-[#00875a] mt-1">{t("nextStep.readyDesc")}</p>
             {context === "day" && (
               <Link href={`/trip/${tripId}`} className="inline-block mt-3">
-                <Button variant="outline" size="sm" className="border-green-300 bg-white hover:bg-green-50">
+                <Button variant="outline" size="sm" className="rounded-full border-[var(--share-border)] bg-white">
                   {t("nextStep.viewOverview")}
                   <ArrowRight className="h-4 w-4 ml-1" />
                 </Button>
@@ -53,7 +53,7 @@ export function NextStepCard({
 
   if (hasDay1) {
     return (
-      <div className="rounded-xl border border-primary/20 bg-accent p-5">
+      <div className="share-card p-5">
         <p className="font-semibold">{t("nextStep.happyDay1")}</p>
         <p className="text-sm text-muted-foreground mt-1 mb-4">
           {t("nextStep.happyDay1Desc", { total: totalDays })}

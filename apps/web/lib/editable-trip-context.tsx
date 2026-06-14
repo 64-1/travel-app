@@ -15,8 +15,13 @@ import {
   registerPlaceDetail,
   setRuntimePlaceDetails,
 } from "@/lib/demo/runtime-place-details";
+import { useToast } from "@/components/Toast";
+import { useI18n } from "@/lib/i18n/context";
 
 const STORAGE_PREFIX = "travel-planner:trip:";
+const REORDER_DEBOUNCE_MS = 300;
+
+type PersistMode = "local" | "server";
 
 interface StoredTripData {
   trip: Trip;
@@ -60,9 +65,24 @@ function makeBlock(label: string, place: Place): PlanBlock {
   };
 }
 
+function applyReorder(trip: Trip, dayIndex: number, blockIds: string[]): Trip {
+  return {
+    ...trip,
+    days: trip.days.map((d) => {
+      if (d.dayIndex !== dayIndex) return d;
+      const active = d.blocks.filter((b) => b.status !== "skipped");
+      const skipped = d.blocks.filter((b) => b.status === "skipped");
+      const byId = new Map(active.map((b) => [b.id, b]));
+      const reordered = blockIds.map((id) => byId.get(id)).filter(Boolean) as PlanBlock[];
+      return { ...d, blocks: [...reordered, ...skipped] };
+    }),
+  };
+}
+
 interface EditableTripContextValue {
   trip: Trip;
   editable: boolean;
+  persistMode: PersistMode;
   isDirty: boolean;
   removeBlock: (dayIndex: number, blockId: string) => void;
   reorderBlocks: (dayIndex: number, blockIds: string[]) => void;
@@ -81,6 +101,7 @@ interface ProviderProps {
   tripId: string;
   initialTrip: Trip;
   editable?: boolean;
+  persist?: PersistMode;
   children: React.ReactNode;
 }
 
@@ -88,8 +109,11 @@ export function EditableTripProvider({
   tripId,
   initialTrip,
   editable = true,
+  persist = "local",
   children,
 }: ProviderProps) {
+  const { toast } = useToast();
+  const { t } = useI18n();
   const initialRef = useRef(initialTrip);
   initialRef.current = initialTrip;
 
@@ -97,52 +121,119 @@ export function EditableTripProvider({
   const [extraDetails, setExtraDetails] = useState<Record<string, PlaceDetailRecord>>({});
   const [isDirty, setIsDirty] = useState(false);
   const [hydrated, setHydrated] = useState(false);
+  const reorderDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const reorderSnapshotRef = useRef<Trip | null>(null);
+  const pendingReorderRef = useRef<{ dayIndex: number; blockIds: string[] } | null>(null);
 
   useEffect(() => {
-    const stored = loadStored(tripId);
-    if (stored) {
-      setTrip(stored.trip);
-      if (stored.extraDetails) {
-        setExtraDetails(stored.extraDetails);
-        setRuntimePlaceDetails(stored.extraDetails);
+    if (persist === "local") {
+      const stored = loadStored(tripId);
+      if (stored) {
+        setTrip(stored.trip);
+        if (stored.extraDetails) {
+          setExtraDetails(stored.extraDetails);
+          setRuntimePlaceDetails(stored.extraDetails);
+        }
+        setIsDirty(true);
       }
-      setIsDirty(true);
     }
     setHydrated(true);
-  }, [tripId]);
+  }, [tripId, persist]);
 
   useEffect(() => {
-    if (hydrated && isDirty) {
+    if (persist === "local" && hydrated && isDirty) {
       saveStored(tripId, { trip, extraDetails });
     }
-  }, [trip, extraDetails, tripId, hydrated, isDirty]);
+  }, [trip, extraDetails, tripId, hydrated, isDirty, persist]);
 
-  const removeBlock = useCallback((dayIndex: number, blockId: string) => {
-    setTrip((prev) => ({
-      ...prev,
-      days: prev.days.map((d) =>
-        d.dayIndex === dayIndex
-          ? { ...d, blocks: d.blocks.filter((b) => b.id !== blockId) }
-          : d
-      ),
-    }));
-    setIsDirty(true);
+  useEffect(() => {
+    return () => {
+      if (reorderDebounceRef.current) clearTimeout(reorderDebounceRef.current);
+    };
   }, []);
 
-  const reorderBlocks = useCallback((dayIndex: number, blockIds: string[]) => {
-    setTrip((prev) => ({
-      ...prev,
-      days: prev.days.map((d) => {
-        if (d.dayIndex !== dayIndex) return d;
-        const active = d.blocks.filter((b) => b.status !== "skipped");
-        const skipped = d.blocks.filter((b) => b.status === "skipped");
-        const byId = new Map(active.map((b) => [b.id, b]));
-        const reordered = blockIds.map((id) => byId.get(id)).filter(Boolean) as PlanBlock[];
-        return { ...d, blocks: [...reordered, ...skipped] };
-      }),
-    }));
-    setIsDirty(true);
-  }, []);
+  const removeBlock = useCallback(
+    (dayIndex: number, blockId: string) => {
+      let previous: Trip | null = null;
+      setTrip((prev) => {
+        previous = prev;
+        return {
+          ...prev,
+          days: prev.days.map((d) =>
+            d.dayIndex === dayIndex
+              ? { ...d, blocks: d.blocks.filter((b) => b.id !== blockId) }
+              : d
+          ),
+        };
+      });
+
+      if (persist === "local") {
+        setIsDirty(true);
+        return;
+      }
+
+      void (async () => {
+        try {
+          const res = await fetch(
+            `/api/trips/${tripId}/days/${dayIndex}/blocks/${blockId}`,
+            { method: "DELETE" }
+          );
+          if (!res.ok) throw new Error("delete failed");
+          setTrip(await res.json());
+        } catch {
+          if (previous) setTrip(previous);
+          toast(t("trip.toastSaveFailed"), "error");
+        }
+      })();
+    },
+    [persist, tripId, toast, t]
+  );
+
+  const flushReorder = useCallback(
+    async (dayIndex: number, blockIds: string[]) => {
+      try {
+        const res = await fetch(`/api/trips/${tripId}/days/${dayIndex}/blocks`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ blockIds }),
+        });
+        if (!res.ok) throw new Error("reorder failed");
+        setTrip(await res.json());
+        reorderSnapshotRef.current = null;
+      } catch {
+        if (reorderSnapshotRef.current) {
+          setTrip(reorderSnapshotRef.current);
+          reorderSnapshotRef.current = null;
+        }
+        toast(t("trip.toastSaveFailed"), "error");
+      }
+    },
+    [tripId, toast, t]
+  );
+
+  const reorderBlocks = useCallback(
+    (dayIndex: number, blockIds: string[]) => {
+      setTrip((prev) => {
+        if (persist === "server" && !reorderSnapshotRef.current) {
+          reorderSnapshotRef.current = prev;
+        }
+        return applyReorder(prev, dayIndex, blockIds);
+      });
+
+      if (persist === "local") {
+        setIsDirty(true);
+        return;
+      }
+
+      pendingReorderRef.current = { dayIndex, blockIds };
+      if (reorderDebounceRef.current) clearTimeout(reorderDebounceRef.current);
+      reorderDebounceRef.current = setTimeout(() => {
+        const pending = pendingReorderRef.current;
+        if (pending) void flushReorder(pending.dayIndex, pending.blockIds);
+      }, REORDER_DEBOUNCE_MS);
+    },
+    [persist, flushReorder]
+  );
 
   const addPlaceBlock = useCallback(
     (
@@ -159,37 +250,72 @@ export function EditableTripProvider({
           return next;
         });
       }
+
+      if (persist === "local") {
+        const block = makeBlock(label, place);
+        setTrip((prev) => ({
+          ...prev,
+          days: prev.days.map((d) =>
+            d.dayIndex === dayIndex ? { ...d, blocks: [...d.blocks, block] } : d
+          ),
+        }));
+        setIsDirty(true);
+        return;
+      }
+
+      let previous: Trip | null = null;
       const block = makeBlock(label, place);
-      setTrip((prev) => ({
-        ...prev,
-        days: prev.days.map((d) =>
-          d.dayIndex === dayIndex ? { ...d, blocks: [...d.blocks, block] } : d
-        ),
-      }));
-      setIsDirty(true);
+      setTrip((prev) => {
+        previous = prev;
+        return {
+          ...prev,
+          days: prev.days.map((d) =>
+            d.dayIndex === dayIndex ? { ...d, blocks: [...d.blocks, block] } : d
+          ),
+        };
+      });
+
+      void (async () => {
+        try {
+          const res = await fetch(`/api/trips/${tripId}/days/${dayIndex}/blocks`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ label, kind: place.kind, place }),
+          });
+          if (!res.ok) throw new Error("add failed");
+          setTrip(await res.json());
+        } catch {
+          if (previous) setTrip(previous);
+          toast(t("trip.toastSaveFailed"), "error");
+        }
+      })();
     },
-    []
+    [persist, tripId, toast, t]
   );
 
   const resetTrip = useCallback(() => {
-    clearStored(tripId);
+    if (persist === "local") {
+      clearStored(tripId);
+    }
     setTrip(initialRef.current);
     setExtraDetails({});
     setRuntimePlaceDetails({});
     setIsDirty(false);
-  }, [tripId]);
+    reorderSnapshotRef.current = null;
+  }, [persist, tripId]);
 
   const value = useMemo(
     () => ({
       trip,
       editable,
-      isDirty,
+      persistMode: persist,
+      isDirty: persist === "local" ? isDirty : false,
       removeBlock,
       reorderBlocks,
       addPlaceBlock,
       resetTrip,
     }),
-    [trip, editable, isDirty, removeBlock, reorderBlocks, addPlaceBlock, resetTrip]
+    [trip, editable, persist, isDirty, removeBlock, reorderBlocks, addPlaceBlock, resetTrip]
   );
 
   return (
