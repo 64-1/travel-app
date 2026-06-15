@@ -281,6 +281,7 @@ export function mockGenerateDays(
       return {
         ...draftBlock,
         suggestions,
+        selectedPlaceId: suggestions[0]?.id,
         backupPlace: { ...backup, id: generateId() },
       };
     });

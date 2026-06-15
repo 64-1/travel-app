@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { countTripDays, generateTripSchema, SUGGESTIONS_PER_BLOCK_MIN } from "@travel-planner/core";
+import { countTripDays, generateTripSchema, SUGGESTIONS_PER_BLOCK_MIN, getSelectedPlace } from "@travel-planner/core";
 import { getTrip, saveTrip } from "@/lib/trip-store";
 import { generateTripDays } from "@/lib/ai/pipeline";
 import { enrichTripPlaces, collectPlaceNamesFromDays, getPrioritizedPlaceIds } from "@/lib/enrich-trip-places";
@@ -13,8 +13,10 @@ function isUsableDay(
 ): boolean {
   const day = days.find((d) => d.dayIndex === fromDay);
   if (!day || day.blocks.length === 0) return false;
-  return day.blocks.some(
-    (b) => b.status !== "skipped" && b.suggestions.length >= SUGGESTIONS_PER_BLOCK_MIN
+  const active = day.blocks.filter((b) => b.status !== "skipped");
+  if (active.length === 0) return false;
+  return active.every(
+    (b) => b.suggestions.length >= SUGGESTIONS_PER_BLOCK_MIN && Boolean(getSelectedPlace(b))
   );
 }
 

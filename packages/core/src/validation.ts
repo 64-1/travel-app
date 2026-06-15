@@ -163,7 +163,8 @@ export function dateForDayIndex(startDate: string, dayIndex: number): string {
 
 export function getSelectedPlace(block: { suggestions: Place[]; selectedPlaceId?: string }): Place | undefined {
   if (block.selectedPlaceId) {
-    return block.suggestions.find((s) => s.id === block.selectedPlaceId);
+    const selected = block.suggestions.find((s) => s.id === block.selectedPlaceId);
+    if (selected) return selected;
   }
   return block.suggestions[0];
 }

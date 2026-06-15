@@ -72,7 +72,11 @@ function ensureBlockSuggestionCount(
           confirmedPicks,
           newId: generateId,
         });
-        return { ...block, suggestions };
+        return {
+          ...block,
+          suggestions,
+          selectedPlaceId: suggestions[0]?.id,
+        };
       }),
     };
   });

@@ -5,6 +5,7 @@ import {
   inferMealSlotFromLabel,
   scoreCandidateForBlock,
 } from "../src/curation";
+import { getSelectedPlace } from "../src/validation";
 import type { PlanBlock, Place, Trip } from "../src/types";
 
 function baseTrip(overrides: Partial<Trip> = {}): Trip {
@@ -160,5 +161,20 @@ describe("curateSuggestionsForBlock", () => {
     assert.ok(result.length <= 7);
     const names = new Set(result.map((p) => p.name.toLowerCase()));
     assert.equal(names.size, result.length);
+  });
+});
+
+describe("getSelectedPlace", () => {
+  it("falls back when selectedPlaceId is stale", () => {
+    const second = place({ id: "new-id", name: "Cafe B" });
+    const block = {
+      id: "b1",
+      kind: "meal" as const,
+      label: "Breakfast",
+      suggestions: [second],
+      selectedPlaceId: "old-id",
+      status: "suggested" as const,
+    };
+    assert.equal(getSelectedPlace(block)?.id, "new-id");
   });
 });

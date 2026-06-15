@@ -34,6 +34,7 @@ export function ShareDayPanel({ day, trip, basePath }: DayPanelProps) {
   const showOwnerActions = persistMode === "server";
 
   const blocks = day.blocks.filter((b) => b.status !== "skipped");
+  const visibleBlocks = blocks.filter((b) => getSelectedPlace(b));
   const seedCatalog = getDestinationCatalog(trip.destination, trip.id);
   const catalog =
     seedCatalog.length > 0 ? seedCatalog : collectAllPlacesFromTrip(trip);
@@ -168,6 +169,20 @@ export function ShareDayPanel({ day, trip, basePath }: DayPanelProps) {
               </button>
             )}
           </div>
+        ) : visibleBlocks.length === 0 ? (
+          <div className="share-card flex flex-col items-center gap-3 p-10 text-center">
+            <p className="text-sm text-[var(--share-muted)]">{t("generate.errorGeneric")}</p>
+            {showOwnerActions && (
+              <button
+                type="button"
+                disabled={isRegenerating}
+                onClick={() => setRedoDayOpen(true)}
+                className="share-btn-primary share-focus rounded-full px-4 py-2 text-sm font-semibold disabled:opacity-50"
+              >
+                {t("dayActions.redoDay")}
+              </button>
+            )}
+          </div>
         ) : (
           <ShareSortableStops
             blocks={blocks}
@@ -181,7 +196,7 @@ export function ShareDayPanel({ day, trip, basePath }: DayPanelProps) {
       </section>
 
       {/* Map at the end */}
-      {blocks.length > 0 && (
+      {visibleBlocks.length > 0 && (
         <section className="share-card p-4 sm:p-5">
           <ShareTripMap
             trip={trip}
