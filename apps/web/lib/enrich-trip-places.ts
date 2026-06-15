@@ -25,15 +25,77 @@ async function mapPool<T, R>(items: T[], fn: (item: T) => Promise<R>, limit: num
   return results;
 }
 
-function collectPlaces(days: DayPlan[]): Place[] {
-  const byId = new Map<string, Place>();
+function collectPlacesPrioritized(days: DayPlan[]): Place[] {
+  const top: Place[] = [];
+  const rest: Place[] = [];
+  const seenIds = new Set<string>();
+
   for (const day of days) {
     for (const block of day.blocks) {
-      for (const p of block.suggestions) byId.set(p.id, p);
-      if (block.backupPlace) byId.set(block.backupPlace.id, block.backupPlace);
+      if (block.status === "skipped") continue;
+      const first = block.suggestions[0];
+      if (first && !seenIds.has(first.id)) {
+        top.push(first);
+        seenIds.add(first.id);
+      }
     }
   }
-  return [...byId.values()];
+
+  for (const day of days) {
+    for (const block of day.blocks) {
+      for (let i = 1; i < block.suggestions.length; i++) {
+        const p = block.suggestions[i];
+        if (!seenIds.has(p.id)) {
+          rest.push(p);
+          seenIds.add(p.id);
+        }
+      }
+      if (block.backupPlace && !seenIds.has(block.backupPlace.id)) {
+        rest.push(block.backupPlace);
+        seenIds.add(block.backupPlace.id);
+      }
+    }
+  }
+
+  return [...top, ...rest];
+}
+
+/** Top-ranked suggestion per block first — for about-text enrichment cap. */
+export function getPrioritizedPlaceIds(days: DayPlan[]): string[] {
+  const placeNames: Record<string, string> = {};
+  const ordered: string[] = [];
+  const seen = new Set<string>();
+
+  for (const day of days) {
+    for (const block of day.blocks) {
+      if (block.status === "skipped") continue;
+      const top = block.suggestions[0];
+      if (top && !seen.has(top.id)) {
+        ordered.push(top.id);
+        seen.add(top.id);
+        placeNames[top.id] = top.name;
+      }
+      for (const p of block.suggestions) {
+        placeNames[p.id] = p.name;
+      }
+    }
+  }
+
+  for (const id of Object.keys(placeNames)) {
+    if (!seen.has(id)) ordered.push(id);
+  }
+
+  return ordered;
+}
+
+export function collectPlaceNamesFromDays(days: DayPlan[]): Record<string, string> {
+  const placeNames: Record<string, string> = {};
+  for (const day of days) {
+    for (const block of day.blocks) {
+      for (const p of block.suggestions) placeNames[p.id] = p.name;
+    }
+  }
+  return placeNames;
 }
 
 function needsEnrichment(place: Place): boolean {
@@ -116,7 +178,7 @@ export async function enrichTripPlaces(
   destinationMedia?: DestinationMedia;
 }> {
   const placeDetails: Record<string, PlaceDetailRecord> = { ...(trip.placeDetails ?? {}) };
-  const places = collectPlaces(days);
+  const places = collectPlacesPrioritized(days);
   const toEnrich = places.filter(needsEnrichment);
   const byName = new Map<string, { place: Place; details?: PlaceDetailRecord }>();
 

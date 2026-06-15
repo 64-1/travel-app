@@ -14,7 +14,8 @@
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate deploy",
     "db:studio": "prisma studio",
-    "setup": "npm run db:generate && npm run db:migrate"
+    "setup": "npm run db:generate && npm run db:migrate",
+    "test": "npm run test --workspace=@travel-planner/core"
   },
   "devDependencies": {
     "prisma": "^6.1.0",

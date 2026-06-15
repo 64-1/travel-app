@@ -1,4 +1,7 @@
 import { z } from "zod";
+import { SUGGESTIONS_PER_BLOCK_MAX, SUGGESTIONS_PER_BLOCK_MIN } from "./constants";
+
+export { SUGGESTIONS_PER_BLOCK_MAX, SUGGESTIONS_PER_BLOCK_MIN } from "./constants";
 
 export const interestSchema = z.enum([
   "food",
@@ -88,11 +91,16 @@ export const planBlockSchema = z.object({
   kind: blockKindSchema,
   label: z.string(),
   neighborhood: z.string().optional(),
-  suggestions: z.array(placeSchema).min(1).max(5),
+  suggestions: z.array(placeSchema).min(SUGGESTIONS_PER_BLOCK_MIN).max(SUGGESTIONS_PER_BLOCK_MAX),
   selectedPlaceId: z.string().optional(),
   backupPlace: placeSchema.optional(),
   status: z.enum(["suggested", "confirmed", "skipped"]),
   notes: z.string().optional(),
+});
+
+/** Looser block schema for parsing raw AI output before curation backfill. */
+export const aiPlanBlockSchema = planBlockSchema.extend({
+  suggestions: z.array(placeSchema).min(1).max(SUGGESTIONS_PER_BLOCK_MAX),
 });
 
 export const dayPlanSchema = z.object({
@@ -101,6 +109,14 @@ export const dayPlanSchema = z.object({
   theme: z.string().optional(),
   neighborhoods: z.array(z.string()),
   blocks: z.array(planBlockSchema),
+});
+
+export const aiDayPlanDraftSchema = z.object({
+  days: z.array(
+    dayPlanSchema.omit({ blocks: true }).extend({
+      blocks: z.array(aiPlanBlockSchema),
+    })
+  ),
 });
 
 export const tripSchema = z.object({

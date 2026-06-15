@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { regenerateSchema } from "@travel-planner/core";
 import { getTrip, saveTrip } from "@/lib/trip-store";
 import { regenerateScope } from "@/lib/ai/pipeline";
-import { enrichTripPlaces } from "@/lib/enrich-trip-places";
+import { enrichTripPlaces, collectPlaceNamesFromDays, getPrioritizedPlaceIds } from "@/lib/enrich-trip-places";
 import { enrichTripPlaceAbout } from "@/lib/place-about-fetch";
 
 export const maxDuration = 60;
@@ -32,13 +32,11 @@ export async function POST(
     trip.placeDetails = enriched.placeDetails;
     trip.destinationMedia = enriched.destinationMedia ?? trip.destinationMedia;
 
-    const placeNames: Record<string, string> = {};
-    for (const block of day.blocks) {
-      for (const p of block.suggestions) placeNames[p.id] = p.name;
-    }
+    const placeNames = collectPlaceNamesFromDays([day]);
+    const prioritizedIds = getPrioritizedPlaceIds([day]);
     trip.placeAbout = await enrichTripPlaceAbout(
       trip,
-      Object.keys(placeNames),
+      prioritizedIds,
       placeNames,
       locale
     );

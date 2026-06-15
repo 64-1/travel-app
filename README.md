@@ -6,7 +6,7 @@ Turn your saved posts and reviews into a flexible day-by-day plan.
 
 - **English & 中文** language switcher (auto-detects Chinese browser locale)
 - Wishlist-first: paste Xiaohongshu, Google Maps links, or place names
-- AI-curated suggestions with 2–3 alternatives per block
+- AI-curated suggestions with 5–7 personalized options per time slot
 - Flexible daily timeline (not minute-by-minute)
 - Neighborhood clustering and day map
 - Regenerate with reason, drag-reorder blocks

@@ -1,4 +1,4 @@
-import type { Interest, Pace, TripConstraints } from "./types";
+import type { Interest, Pace, Trip, TripConstraints } from "./types";
 
 export interface DestinationProfile {
   type: "urban" | "nature" | "island" | "mixed";
@@ -111,12 +111,38 @@ export function getSeasonFromDate(dateStr: string): string {
   return "winter";
 }
 
+function constraintsFingerprint(constraints: TripConstraints, pace: Pace): string {
+  const dietary = (constraints.dietary ?? []).slice().sort().join("+") || "none";
+  return [
+    pace,
+    constraints.budget,
+    constraints.mobility,
+    constraints.vibe,
+    constraints.groupType ?? "any",
+    dietary,
+  ].join("|");
+}
+
 export function buildResearchCacheKey(
   destination: string,
   interests: Interest[],
-  season: string
+  season: string,
+  constraints?: TripConstraints,
+  pace?: Pace
 ): string {
-  return `${destination.toLowerCase().trim()}::${interests.sort().join(",")}::${season}`;
+  const base = `${destination.toLowerCase().trim()}::${[...interests].sort().join(",")}::${season}`;
+  if (!constraints || !pace) return base;
+  return `${base}::${constraintsFingerprint(constraints, pace)}`;
+}
+
+export function buildResearchCacheKeyForTrip(trip: Pick<Trip, "destination" | "interests" | "startDate" | "constraints" | "pace">): string {
+  return buildResearchCacheKey(
+    trip.destination,
+    trip.interests,
+    getSeasonFromDate(trip.startDate),
+    trip.constraints,
+    trip.pace
+  );
 }
 
 export function constraintsToPrompt(constraints: TripConstraints): string {

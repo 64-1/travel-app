@@ -67,7 +67,7 @@ export function ShareStopPlanning({
             </span>
           </div>
 
-          {block.suggestions.length > 1 && (
+          {block.status === "suggested" && block.suggestions.length >= 5 && (
             <div>
               <p className="mb-2 text-xs font-medium text-[var(--share-muted)]">
                 {t("block.chooseFavorite", { count: block.suggestions.length })}

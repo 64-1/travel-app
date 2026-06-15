@@ -93,11 +93,31 @@ export function validateMustIncludeWishlist(
   return issues;
 }
 
+export function validateSuggestionCounts(days: DayPlan[]): ValidationIssue[] {
+  const issues: ValidationIssue[] = [];
+  for (const day of days) {
+    for (const block of day.blocks) {
+      if (block.status === "skipped") continue;
+      if (block.suggestions.length === 1) continue;
+      if (block.suggestions.length < 5) {
+        issues.push({
+          code: "insufficient_suggestions",
+          message: `Day ${day.dayIndex + 1} block "${block.label}" has ${block.suggestions.length} suggestions (expected at least 5)`,
+          dayIndex: day.dayIndex,
+          blockId: block.id,
+        });
+      }
+    }
+  }
+  return issues;
+}
+
 export function validateTrip(trip: Trip): ValidationIssue[] {
   return [
     ...findDuplicatePlaces(trip.days),
     ...validateBlockCount(trip),
     ...validateMustIncludeWishlist(trip.wishlist, trip.days),
+    ...validateSuggestionCounts(trip.days),
   ];
 }
 
