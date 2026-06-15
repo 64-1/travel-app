@@ -98,6 +98,23 @@ export function collectPlaceNamesFromDays(days: DayPlan[]): Record<string, strin
   return placeNames;
 }
 
+/** One top-ranked place per block — fast path for generate/regenerate on serverless. */
+export function collectTopPlacesPerBlock(days: DayPlan[]): Place[] {
+  const places: Place[] = [];
+  const seenIds = new Set<string>();
+  for (const day of days) {
+    for (const block of day.blocks) {
+      if (block.status === "skipped") continue;
+      const top = block.suggestions[0];
+      if (top && !seenIds.has(top.id)) {
+        places.push(top);
+        seenIds.add(top.id);
+      }
+    }
+  }
+  return places;
+}
+
 function needsEnrichment(place: Place): boolean {
   return !place.imageUrl || place.lat === undefined || place.lng === undefined;
 }
@@ -171,14 +188,17 @@ export async function enrichDestinationMedia(
 export async function enrichTripPlaces(
   trip: Trip,
   days: DayPlan[],
-  locale: Locale = "en"
+  locale: Locale = "en",
+  options?: { topPlacesOnly?: boolean; skipHero?: boolean }
 ): Promise<{
   days: DayPlan[];
   placeDetails: Record<string, PlaceDetailRecord>;
   destinationMedia?: DestinationMedia;
 }> {
   const placeDetails: Record<string, PlaceDetailRecord> = { ...(trip.placeDetails ?? {}) };
-  const places = collectPlacesPrioritized(days);
+  const places = options?.topPlacesOnly
+    ? collectTopPlacesPerBlock(days)
+    : collectPlacesPrioritized(days);
   const toEnrich = places.filter(needsEnrichment);
   const byName = new Map<string, { place: Place; details?: PlaceDetailRecord }>();
 
@@ -195,7 +215,7 @@ export async function enrichTripPlaces(
       );
       byName.set(key, { place: resolved.place, details: resolved.details });
     },
-    5
+    3
   );
 
   for (const place of places) {
@@ -214,7 +234,9 @@ export async function enrichTripPlaces(
   }
 
   const enrichedDays = applyEnrichmentToDays(days, byName, placeDetails);
-  const destinationMedia = await enrichDestinationMedia(trip);
+  const destinationMedia = options?.skipHero
+    ? trip.destinationMedia
+    : await enrichDestinationMedia(trip);
 
   return { days: enrichedDays, placeDetails, destinationMedia };
 }

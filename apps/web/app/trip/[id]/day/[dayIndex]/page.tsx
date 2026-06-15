@@ -16,10 +16,21 @@ export default function TripDayPage() {
 
   if (!day) {
     return (
-      <div className="py-12 text-center">
+      <div className="py-12 text-center space-y-4">
         <p className="text-muted-foreground">{t("trip.dayNotPlanned")}</p>
-        <Link href={`/trip/${id}/day/0`} className="text-primary mt-4 inline-block text-sm">
-          {t("common.backHome")}
+        <Link href={`/trip/${id}/generate`} className="text-primary inline-block text-sm font-medium">
+          {t("trip.generateCta")}
+        </Link>
+      </div>
+    );
+  }
+
+  if (day.blocks.filter((b) => b.status !== "skipped").length === 0) {
+    return (
+      <div className="py-12 text-center space-y-4">
+        <p className="text-muted-foreground">{t("generate.errorGeneric")}</p>
+        <Link href={`/trip/${id}/generate`} className="text-primary inline-block text-sm font-medium">
+          {t("common.tryAgain")}
         </Link>
       </div>
     );

@@ -27,7 +27,10 @@ export async function POST(
 
   const day = trip.days.find((d) => d.dayIndex === dayIndex);
   if (day) {
-    const enriched = await enrichTripPlaces(trip, [day], locale);
+    const enriched = await enrichTripPlaces(trip, [day], locale, {
+      topPlacesOnly: true,
+      skipHero: true,
+    });
     trip.days = trip.days.map((d) => (d.dayIndex === dayIndex ? enriched.days[0] : d));
     trip.placeDetails = enriched.placeDetails;
     trip.destinationMedia = enriched.destinationMedia ?? trip.destinationMedia;

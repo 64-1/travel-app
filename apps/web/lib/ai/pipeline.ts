@@ -115,13 +115,28 @@ async function setCachedResearch(key: string, candidates: Place[]): Promise<void
   });
 }
 
+function mergeCandidatePools(primary: Place[], extra: Place[]): Place[] {
+  const seen = new Set(primary.map((c) => normalizePlaceName(c.name)));
+  const merged = [...primary];
+  for (const place of extra) {
+    const key = normalizePlaceName(place.name);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    merged.push(place);
+  }
+  return merged;
+}
+
 async function researchPass(trip: Trip, locale: ContentLocale = "en"): Promise<Place[]> {
   const cacheKey = buildResearchCacheKeyForTrip(trip);
   const cached = await getCachedResearch(cacheKey);
-  if (cached) return cached;
+  const mockPool = mockResearchCandidates(trip, locale);
+  if (cached) {
+    return cached.length >= 40 ? cached : mergeCandidatePools(cached, mockPool);
+  }
 
   if (!hasAI()) {
-    const candidates = mockResearchCandidates(trip, locale);
+    const candidates = mockPool;
     await setCachedResearch(cacheKey, candidates);
     return candidates;
   }
@@ -149,12 +164,49 @@ Include a mix of confidence levels and meal slots. Never invent exact street add
 
   const content = response.choices[0]?.message?.content ?? "{}";
   const parsed = researchCacheSchema.safeParse(JSON.parse(content));
-  const candidates = parsed.success
+  let candidates = parsed.success
     ? parsed.data.candidates.map((c) => ({ ...c, id: c.id || generateId() }))
-    : mockResearchCandidates(trip, locale);
+    : mockPool;
+
+  if (candidates.length < 40) {
+    candidates = mergeCandidatePools(candidates, mockPool);
+  }
 
   await setCachedResearch(cacheKey, candidates);
   return candidates;
+}
+
+function normalizePlannedDays(
+  planned: DayPlan[],
+  trip: Trip,
+  fromDay: number,
+  toDay: number,
+  locale: ContentLocale
+): DayPlan[] {
+  if (!planned.length) {
+    return mockGenerateDays(trip, fromDay, toDay, locale);
+  }
+
+  const normalized = planned.map((day, i) => {
+    const dayIndex = fromDay === toDay ? fromDay : (day.dayIndex ?? fromDay + i);
+    return {
+      ...day,
+      dayIndex,
+      date: day.date ?? dateForDayIndex(trip.startDate, dayIndex),
+      blocks: day.blocks.map((b) => ({
+        ...b,
+        id: b.id || generateId(),
+        suggestions: b.suggestions.map((s) => ({ ...s, id: s.id || generateId() })),
+      })),
+    };
+  });
+
+  const targetDay = normalized.find((d) => d.dayIndex === fromDay);
+  if (!targetDay || targetDay.blocks.length === 0) {
+    return mockGenerateDays(trip, fromDay, toDay, locale);
+  }
+
+  return normalized;
 }
 
 async function planningPass(
@@ -210,16 +262,8 @@ ${languageInstruction(locale)}`;
   const content = response.choices[0]?.message?.content ?? "{}";
   const parsed = aiDayPlanDraftSchema.safeParse(JSON.parse(content));
 
-  if (parsed.success) {
-    return parsed.data.days.map((day) => ({
-      ...day,
-      date: day.date ?? dateForDayIndex(trip.startDate, day.dayIndex),
-      blocks: day.blocks.map((b) => ({
-        ...b,
-        id: b.id || generateId(),
-        suggestions: b.suggestions.map((s) => ({ ...s, id: s.id || generateId() })),
-      })),
-    }));
+  if (parsed.success && parsed.data.days.length > 0) {
+    return normalizePlannedDays(parsed.data.days, trip, fromDay, toDay, locale);
   }
 
   return mockGenerateDays(trip, fromDay, toDay, locale);
@@ -275,7 +319,9 @@ export async function generateTripDays(
     ...validated,
   ].sort((a, b) => a.dayIndex - b.dayIndex);
 
-  const daysGenerated = Math.max(trip.daysGenerated, ...allDays.map((d) => d.dayIndex + 1));
+  const daysGenerated = allDays.length
+    ? Math.max(trip.daysGenerated, ...allDays.map((d) => d.dayIndex + 1))
+    : trip.daysGenerated;
 
   return { days: allDays, daysGenerated };
 }

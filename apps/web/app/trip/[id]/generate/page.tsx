@@ -34,8 +34,19 @@ export default function GeneratePage() {
           body: JSON.stringify({ fromDay: 0, locale }),
         });
         if (!res.ok) {
-          const err = await res.json();
-          throw new Error(err.error ?? "Generation failed");
+          const err = await res.json().catch(() => ({}));
+          const message =
+            typeof err.error === "string"
+              ? err.error
+              : typeof err.error === "object" && err.error !== null
+                ? "Generation failed"
+                : "Generation failed";
+          throw new Error(message);
+        }
+        const updated = await res.json();
+        const day = updated.days?.find((d: { dayIndex: number }) => d.dayIndex === 0);
+        if (!day?.blocks?.length) {
+          throw new Error(t("generate.errorGeneric"));
         }
         router.push(`/trip/${id}/day/0`);
       } catch (e) {

@@ -17,7 +17,7 @@ const URBAN_KEYWORDS = [
 
 const NATURE_KEYWORDS = [
   "bali", "alps", "iceland", "patagonia", "banff", "queenstown",
-  "swiss", "hiking", "national park",
+  "swiss", "hiking", "national park", "new zealand", "zealand",
 ];
 
 const ISLAND_KEYWORDS = ["bali", "phuket", "okinawa", "hawaii", "maldives", "santorini"];
