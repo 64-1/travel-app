@@ -148,7 +148,7 @@ export const en = {
     map: "Map",
     noPlacesMap: "No places to show on map yet.",
     areasToday: "Areas today:",
-    toastDaysReady: "Rest of your trip is ready!",
+    toastDaysReady: "{day} is ready!",
     toastDaysFailed: "Could not generate days",
     toastDuplicated: "Day duplicated",
     toastDownloaded: "Trip downloaded!",
@@ -162,11 +162,12 @@ export const en = {
   nextStep: {
     readyTitle: "Your trip is ready!",
     readyDesc: "Browse each day, confirm your picks, and export or share when you're happy.",
-    happyDay1: "Happy with Day 1?",
-    happyDay1Desc: "Generate the rest of your {total}-day trip, or tweak Day 1 first.",
-    generateRest: "Generate days 2–{total}",
+    happyWithDay: "Happy with {day}?",
+    planNextDayDesc:
+      "When you're ready, plan {nextDay}. We build one day at a time so each plan can reflect how the trip is actually going.",
+    generateNextDay: "Plan {day}",
     generating: "Building your plan…",
-    reviewDay1: "Review Day 1",
+    reviewDay: "Review {day}",
     viewOverview: "View trip overview",
     whatsNext: "What's next?",
     hasSpots: "You have {count} saved spot. Ready to build Day 1?",
@@ -177,7 +178,7 @@ export const en = {
   },
   generate: {
     title: "Building your Day 1 plan",
-    usually: "This usually takes 10–30 seconds",
+    usually: "This usually takes 10–20 seconds",
     errorTitle: "Couldn't build your plan",
     errorGeneric: "Something went wrong. Please try again.",
     status: {

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { generateTripSchema } from "@travel-planner/core";
+import { countTripDays, generateTripSchema } from "@travel-planner/core";
 import { getTrip, saveTrip } from "@/lib/trip-store";
 import { generateTripDays } from "@/lib/ai/pipeline";
 import { enrichTripPlaces } from "@/lib/enrich-trip-places";
@@ -22,14 +22,23 @@ export async function POST(
   }
 
   const fromDay = parsed.data.fromDay ?? 0;
+  const totalDays = countTripDays(trip.startDate, trip.endDate);
+
+  if (fromDay >= totalDays) {
+    return NextResponse.json({ error: "All days already generated" }, { status: 400 });
+  }
 
   if (fromDay > 0 && trip.daysGenerated < 1) {
     return NextResponse.json({ error: "Generate Day 1 first" }, { status: 400 });
   }
 
+  if (fromDay > 0 && fromDay !== trip.daysGenerated) {
+    return NextResponse.json({ error: "Generate days in order" }, { status: 400 });
+  }
+
   const locale = parsed.data.locale ?? "en";
   const { days, daysGenerated } = await generateTripDays(trip, fromDay, locale);
-  const toEnrich = fromDay === 0 ? days : days.filter((d) => d.dayIndex >= fromDay);
+  const toEnrich = days.filter((d) => d.dayIndex === fromDay);
   const enriched = await enrichTripPlaces({ ...trip, days }, toEnrich, locale);
 
   trip.days = days.map((d) => enriched.days.find((e) => e.dayIndex === d.dayIndex) ?? d);

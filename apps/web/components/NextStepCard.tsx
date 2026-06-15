@@ -3,12 +3,14 @@
 import Link from "next/link";
 import { Button } from "./ui/button";
 import { useI18n } from "@/lib/i18n/context";
+import { dayLabel } from "@/lib/format";
 import { ArrowRight, Sparkles, Heart } from "lucide-react";
 
 interface Props {
   tripId: string;
   hasDay1: boolean;
   hasAllDays: boolean;
+  daysGenerated: number;
   wishlistCount: number;
   onGenerateRemaining?: () => void;
   generating?: boolean;
@@ -21,13 +23,14 @@ export function NextStepCard({
   tripId,
   hasDay1,
   hasAllDays,
+  daysGenerated,
   wishlistCount,
   onGenerateRemaining,
   generating,
   totalDays,
   context = "overview",
 }: Props) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
 
   if (hasAllDays) {
     return (
@@ -52,15 +55,18 @@ export function NextStepCard({
   }
 
   if (hasDay1) {
+    const currentDay = dayLabel(daysGenerated - 1, locale);
+    const nextDay = dayLabel(daysGenerated, locale);
+
     return (
       <div className="share-card p-5">
-        <p className="font-semibold">{t("nextStep.happyDay1")}</p>
+        <p className="font-semibold">{t("nextStep.happyWithDay", { day: currentDay })}</p>
         <p className="text-sm text-muted-foreground mt-1 mb-4">
-          {t("nextStep.happyDay1Desc", { total: totalDays })}
+          {t("nextStep.planNextDayDesc", { nextDay })}
         </p>
         <div className="flex flex-wrap gap-2">
           <Button onClick={onGenerateRemaining} disabled={generating}>
-            {generating ? t("nextStep.generating") : t("nextStep.generateRest", { total: totalDays })}
+            {generating ? t("nextStep.generating") : t("nextStep.generateNextDay", { day: nextDay })}
             <ArrowRight className="h-4 w-4 ml-1" />
           </Button>
           {context === "day" ? (
@@ -68,8 +74,8 @@ export function NextStepCard({
               <Button variant="outline">{t("nextStep.viewOverview")}</Button>
             </Link>
           ) : (
-            <Link href={`/trip/${tripId}/day/0`}>
-              <Button variant="outline">{t("nextStep.reviewDay1")}</Button>
+            <Link href={`/trip/${tripId}/day/${daysGenerated - 1}`}>
+              <Button variant="outline">{t("nextStep.reviewDay", { day: currentDay })}</Button>
             </Link>
           )}
         </div>

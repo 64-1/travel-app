@@ -150,7 +150,7 @@ export const zh = {
     map: "地图",
     noPlacesMap: "暂无地点可显示在地图上。",
     areasToday: "今日区域：",
-    toastDaysReady: "剩余天数的行程已生成！",
+    toastDaysReady: "{day}已生成！",
     toastDaysFailed: "生成失败",
     toastDuplicated: "已复制该天行程",
     toastDownloaded: "行程已下载！",
@@ -164,11 +164,11 @@ export const zh = {
   nextStep: {
     readyTitle: "行程已就绪！",
     readyDesc: "浏览每一天，确认你的选择，满意后可以导出或分享。",
-    happyDay1: "第1天满意吗？",
-    happyDay1Desc: "生成剩余 {total} 天的行程，或先调整第1天。",
-    generateRest: "生成第2–{total}天",
+    happyWithDay: "对{day}满意吗？",
+    planNextDayDesc: "准备好了就规划{nextDay}。我们逐天生成，让每一天都能根据实际行程调整。",
+    generateNextDay: "规划{day}",
     generating: "正在生成…",
-    reviewDay1: "查看第1天",
+    reviewDay: "查看{day}",
     viewOverview: "查看行程总览",
     whatsNext: "接下来做什么？",
     hasSpots: "你已收藏 {count} 个地点，准备生成第1天？",
@@ -179,7 +179,7 @@ export const zh = {
   },
   generate: {
     title: "正在生成第1天行程",
-    usually: "通常需要 10–30 秒",
+    usually: "通常需要 10–20 秒",
     errorTitle: "无法生成行程",
     errorGeneric: "出了点问题，请重试。",
     status: {

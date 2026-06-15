@@ -127,7 +127,9 @@ export function ShareDayPanel({ day, trip, basePath }: DayPanelProps) {
         </div>
       </header>
 
-      {showOwnerActions && trip.daysGenerated < totalDays && (
+      {showOwnerActions &&
+        trip.daysGenerated < totalDays &&
+        day.dayIndex === trip.daysGenerated - 1 && (
         <GenerateRemainingBanner trip={trip} />
       )}
 

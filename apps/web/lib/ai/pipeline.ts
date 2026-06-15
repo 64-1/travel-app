@@ -242,8 +242,7 @@ export async function generateTripDays(
   fromDay: number = 0,
   locale: ContentLocale = "en"
 ): Promise<{ days: DayPlan[]; daysGenerated: number }> {
-  const totalDays = countTripDays(trip.startDate, trip.endDate);
-  const toDay = fromDay === 0 ? 0 : totalDays - 1;
+  const toDay = fromDay;
 
   const researched = await researchPass(trip, locale);
   const candidates = mergeWishlistIntoCandidates(trip, researched);

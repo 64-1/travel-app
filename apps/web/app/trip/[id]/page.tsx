@@ -39,14 +39,16 @@ export default function TripOverviewPage() {
   async function generateRemaining() {
     setGenerating(true);
     try {
+      const nextDayIndex = trip!.daysGenerated;
       const res = await fetch(`/api/trips/${id}/generate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ fromDay: trip!.daysGenerated, locale }),
+        body: JSON.stringify({ fromDay: nextDayIndex, locale }),
       });
       if (!res.ok) throw new Error();
-      setTrip(await res.json());
-      toast(t("trip.toastDaysReady"), "success");
+      const updated = await res.json();
+      setTrip(updated);
+      toast(t("trip.toastDaysReady", { day: dayLabel(nextDayIndex, locale) }), "success");
     } catch {
       toast(t("trip.toastDaysFailed"), "error");
     } finally {
@@ -112,6 +114,7 @@ export default function TripOverviewPage() {
         tripId={id}
         hasDay1={hasDay1}
         hasAllDays={hasAllDays}
+        daysGenerated={trip.daysGenerated}
         wishlistCount={trip.wishlist.length}
         onGenerateRemaining={generateRemaining}
         generating={generating}
