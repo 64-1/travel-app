@@ -4,6 +4,8 @@ export * from "./schemas";
 export * from "./pace-rules";
 export * from "./curation";
 export * from "./validation";
+export * from "./generic-spot-guard";
+export { CURATED_MOCK_DESTINATION_KEYS, hasCuratedMockDestination } from "./mock-destinations";
 
 export const CONFIDENCE_LABELS: Record<string, string> = {
   widely_recommended: "Widely recommended",

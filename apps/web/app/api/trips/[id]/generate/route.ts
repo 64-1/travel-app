@@ -1,5 +1,13 @@
 import { NextResponse } from "next/server";
-import { countTripDays, generateTripSchema, SUGGESTIONS_PER_BLOCK_MIN, getSelectedPlace } from "@travel-planner/core";
+import {
+  countTripDays,
+  dayContainsGenericContent,
+  generateTripSchema,
+  hasCuratedMockDestination,
+  RESEARCH_POOL_MIN,
+  SUGGESTIONS_PER_BLOCK_MIN,
+  getSelectedPlace,
+} from "@travel-planner/core";
 import { getTrip, saveTrip } from "@/lib/trip-store";
 import { generateTripDays } from "@/lib/ai/pipeline";
 import { enrichTripPlaces, collectPlaceNamesFromDays, getPrioritizedPlaceIds } from "@/lib/enrich-trip-places";
@@ -9,15 +17,29 @@ export const maxDuration = 60;
 
 function isUsableDay(
   days: Awaited<ReturnType<typeof generateTripDays>>["days"],
-  fromDay: number
+  fromDay: number,
+  destination: string
 ): boolean {
   const day = days.find((d) => d.dayIndex === fromDay);
   if (!day || day.blocks.length === 0) return false;
   const active = day.blocks.filter((b) => b.status !== "skipped");
   if (active.length === 0) return false;
-  return active.every(
+  if (dayContainsGenericContent(day)) return false;
+  const blocksOk = active.every(
     (b) => b.suggestions.length >= SUGGESTIONS_PER_BLOCK_MIN && Boolean(getSelectedPlace(b))
   );
+  if (!blocksOk) return false;
+  if (!hasCuratedMockDestination(destination)) {
+    const poolSize = new Set(
+      active.flatMap((b) => b.suggestions.map((s) => s.name.toLowerCase().trim()))
+    ).size;
+    if (poolSize < RESEARCH_POOL_MIN / 4) return false;
+  }
+  return true;
+}
+
+function generationErrorMessage(destination: string): string {
+  return `Couldn't find enough real places for ${destination}. Try adding saved spots on your wishlist or adjusting your interests, then generate again.`;
 }
 
 export async function POST(
@@ -53,9 +75,9 @@ export async function POST(
     const locale = parsed.data.locale ?? "en";
     const { days, daysGenerated } = await generateTripDays(trip, fromDay, locale);
 
-    if (!isUsableDay(days, fromDay)) {
+    if (!isUsableDay(days, fromDay, trip.destination)) {
       return NextResponse.json(
-        { error: "Could not build a complete day plan. Please try again." },
+        { error: generationErrorMessage(trip.destination) },
         { status: 500 }
       );
     }

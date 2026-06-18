@@ -207,18 +207,23 @@ const DESTINATION_DATA: Record<
   },
 };
 
-function getDestData(destination: string) {
+function getDestData(destination: string, allowDefault = true) {
   const lower = destination.toLowerCase();
   for (const key of Object.keys(DESTINATION_DATA)) {
     if (key !== "default" && lower.includes(key)) {
       return DESTINATION_DATA[key];
     }
   }
-  return DESTINATION_DATA.default;
+  return allowDefault ? DESTINATION_DATA.default : null;
+}
+
+export function getCuratedNeighborhoods(destination: string): string[] {
+  return getDestData(destination)?.neighborhoods ?? [];
 }
 
 export function mockResearchCandidates(trip: Trip, locale: ContentLocale = "en"): Place[] {
   const data = getDestData(trip.destination);
+  if (!data) return [];
   const tags = trip.interests.slice(0, 2) as Interest[];
   return data.spots.map((s) => makePlace(s, tags, locale));
 }
@@ -230,6 +235,7 @@ export function mockGenerateDays(
   locale: ContentLocale = "en"
 ): DayPlan[] {
   const data = getDestData(trip.destination);
+  if (!data) return [];
   const profile = inferDestinationProfile(trip.destination);
   const labels = getBlockLabels(profile, trip.interests, trip.pace).map((l) =>
     locale === "zh" ? (LABELS_ZH[l] ?? l) : l

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { regenerateSchema } from "@travel-planner/core";
+import { dayContainsGenericContent, regenerateSchema } from "@travel-planner/core";
 import { getTrip, saveTrip } from "@/lib/trip-store";
 import { regenerateScope } from "@/lib/ai/pipeline";
 import { enrichTripPlaces, collectPlaceNamesFromDays, getPrioritizedPlaceIds } from "@/lib/enrich-trip-places";
@@ -26,6 +26,14 @@ export async function POST(
   trip.days = await regenerateScope(trip, dayIndex, blockId, reason, customFeedback, locale);
 
   const day = trip.days.find((d) => d.dayIndex === dayIndex);
+  if (day && dayContainsGenericContent(day)) {
+    return NextResponse.json(
+      {
+        error: `Couldn't find enough real places for ${trip.destination}. Try again or add saved spots first.`,
+      },
+      { status: 500 }
+    );
+  }
   if (day) {
     const enriched = await enrichTripPlaces(trip, [day], locale, {
       topPlacesOnly: true,

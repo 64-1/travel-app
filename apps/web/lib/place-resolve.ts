@@ -50,7 +50,7 @@ interface NominatimHit {
   };
 }
 
-async function geocodePlace(
+export async function geocodePlace(
   name: string,
   destination: string,
   country?: string

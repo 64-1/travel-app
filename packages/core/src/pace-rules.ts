@@ -123,6 +123,8 @@ function constraintsFingerprint(constraints: TripConstraints, pace: Pace): strin
   ].join("|");
 }
 
+const RESEARCH_CACHE_VERSION = "v2";
+
 export function buildResearchCacheKey(
   destination: string,
   interests: Interest[],
@@ -130,7 +132,7 @@ export function buildResearchCacheKey(
   constraints?: TripConstraints,
   pace?: Pace
 ): string {
-  const base = `${destination.toLowerCase().trim()}::${[...interests].sort().join(",")}::${season}`;
+  const base = `${destination.toLowerCase().trim()}::${[...interests].sort().join(",")}::${season}::${RESEARCH_CACHE_VERSION}`;
   if (!constraints || !pace) return base;
   return `${base}::${constraintsFingerprint(constraints, pace)}`;
 }

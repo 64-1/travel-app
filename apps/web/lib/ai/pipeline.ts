@@ -1,13 +1,17 @@
 import {
   aiDayPlanDraftSchema,
   buildResearchCacheKeyForTrip,
+  cacheRemovalRatio,
   constraintsToPrompt,
   curateSuggestionsForBlock,
   dedupeSuggestionsAcrossDays,
   extractConfirmedPicks,
   extractUsedPlaceNames,
-  getSeasonFromDate,
+  inferDestinationProfile,
+  hasCuratedMockDestination,
+  RESEARCH_POOL_MIN,
   researchCacheSchema,
+  stripGenericCandidates,
   SUGGESTIONS_PER_BLOCK_MAX,
   SUGGESTIONS_PER_BLOCK_MIN,
   validateTrip,
@@ -19,7 +23,8 @@ import {
 import { prisma } from "../db";
 import { generateId } from "../utils";
 import { getOpenAI, hasAI } from "./client";
-import { mockGenerateDays, mockResearchCandidates } from "./mock-data";
+import { mockGenerateDays } from "./mock-data";
+import { runResearchPass, type ResearchResult } from "./research";
 
 type ContentLocale = "en" | "zh";
 
@@ -32,6 +37,10 @@ function languageInstruction(locale: ContentLocale = "en"): string {
 
 function normalizePlaceName(name: string): string {
   return name.toLowerCase().trim();
+}
+
+function allowMockFallback(trip: Trip): boolean {
+  return !hasAI() || hasCuratedMockDestination(trip.destination);
 }
 
 /** User-saved spots + researched candidates — saved spots never replace the research pool */
@@ -96,88 +105,64 @@ function formatConfirmedPicksForPrompt(trip: Trip, fromDay: number): string {
   );
 }
 
-async function getCachedResearch(key: string): Promise<Place[] | null> {
+async function getCachedResearch(key: string): Promise<ResearchResult | null> {
   const row = await prisma.researchCache.findUnique({ where: { cacheKey: key } });
   if (!row || row.expiresAt < new Date()) return null;
   const parsed = researchCacheSchema.safeParse(JSON.parse(row.data));
-  return parsed.success ? parsed.data.candidates : null;
+  if (!parsed.success) return null;
+  return {
+    candidates: parsed.data.candidates,
+    neighborhoods: parsed.data.neighborhoods,
+  };
 }
 
-async function setCachedResearch(key: string, candidates: Place[]): Promise<void> {
+async function setCachedResearch(
+  key: string,
+  candidates: Place[],
+  neighborhoods: string[]
+): Promise<void> {
   const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+  const payload = JSON.stringify({ candidates, neighborhoods });
   await prisma.researchCache.upsert({
     where: { cacheKey: key },
-    create: {
-      cacheKey: key,
-      data: JSON.stringify({ candidates, neighborhoods: [] }),
-      expiresAt,
-    },
-    update: {
-      data: JSON.stringify({ candidates, neighborhoods: [] }),
-      expiresAt,
-    },
+    create: { cacheKey: key, data: payload, expiresAt },
+    update: { data: payload, expiresAt },
   });
 }
 
-function mergeCandidatePools(primary: Place[], extra: Place[]): Place[] {
-  const seen = new Set(primary.map((c) => normalizePlaceName(c.name)));
-  const merged = [...primary];
-  for (const place of extra) {
-    const key = normalizePlaceName(place.name);
-    if (seen.has(key)) continue;
-    seen.add(key);
-    merged.push(place);
-  }
-  return merged;
+function isCacheUsable(cached: ResearchResult, curated: boolean): boolean {
+  const stripped = stripGenericCandidates(cached.candidates);
+  const removalRatio = cacheRemovalRatio(cached.candidates, stripped);
+  if (removalRatio > 0.1) return false;
+  const minRequired = curated ? 40 : RESEARCH_POOL_MIN;
+  return stripped.length >= minRequired;
 }
 
-async function researchPass(trip: Trip, locale: ContentLocale = "en"): Promise<Place[]> {
+async function researchPass(
+  trip: Trip,
+  locale: ContentLocale = "en"
+): Promise<ResearchResult> {
   const cacheKey = buildResearchCacheKeyForTrip(trip);
+  const curated = hasCuratedMockDestination(trip.destination);
   const cached = await getCachedResearch(cacheKey);
-  const mockPool = mockResearchCandidates(trip, locale);
-  if (cached) {
-    return cached.length >= 40 ? cached : mergeCandidatePools(cached, mockPool);
+
+  if (cached && isCacheUsable(cached, curated)) {
+    return {
+      candidates: stripGenericCandidates(cached.candidates),
+      neighborhoods: cached.neighborhoods,
+    };
   }
 
-  if (!hasAI()) {
-    const candidates = mockPool;
-    await setCachedResearch(cacheKey, candidates);
-    return candidates;
+  const result = await runResearchPass(trip, locale);
+  const stripped = stripGenericCandidates(result.candidates);
+  const minToCache = curated ? 40 : RESEARCH_POOL_MIN;
+
+  if (stripped.length >= minToCache) {
+    await setCachedResearch(cacheKey, stripped, result.neighborhoods);
+    return { candidates: stripped, neighborhoods: result.neighborhoods };
   }
 
-  const season = getSeasonFromDate(trip.startDate);
-  const openai = getOpenAI()!;
-  const prompt = `Research travel recommendations for ${trip.destination}${trip.country ? `, ${trip.country}` : ""}.
-Season: ${season}. Interests: ${trip.interests.join(", ")}. Pace: ${trip.pace}.
-Constraints: ${constraintsToPrompt(trip.constraints)}
-${languageInstruction(locale)}
-
-Return a JSON object with key "candidates" — an array of 50-60 diverse places/restaurants/activities across many neighborhoods.
-Each item must have: id (unique string), name, neighborhood, kind (meal|activity|transit|free_time), mealSlot (breakfast|lunch|dinner|snack if meal), whyRecommended (1-2 sentences, no fake star ratings), sourceLinks (array, can be empty), tags (from interests), confidence (widely_recommended|trending_social|local_hidden_gem), localTips (array of 1-2 tips), isCustom (false).
-
-Include a mix of confidence levels and meal slots. Never invent exact street addresses. Do not fabricate review scores.`;
-
-  const response = await openai.chat.completions.create({
-    model: "gpt-4o-mini",
-    messages: [
-      { role: "system", content: "You are a travel research assistant. Output valid JSON only." },
-      { role: "user", content: prompt },
-    ],
-    response_format: { type: "json_object" },
-  });
-
-  const content = response.choices[0]?.message?.content ?? "{}";
-  const parsed = researchCacheSchema.safeParse(JSON.parse(content));
-  let candidates = parsed.success
-    ? parsed.data.candidates.map((c) => ({ ...c, id: c.id || generateId() }))
-    : mockPool;
-
-  if (candidates.length < 40) {
-    candidates = mergeCandidatePools(candidates, mockPool);
-  }
-
-  await setCachedResearch(cacheKey, candidates);
-  return candidates;
+  return { candidates: stripped, neighborhoods: result.neighborhoods };
 }
 
 function normalizePlannedDays(
@@ -188,7 +173,7 @@ function normalizePlannedDays(
   locale: ContentLocale
 ): DayPlan[] {
   if (!planned.length) {
-    return mockGenerateDays(trip, fromDay, toDay, locale);
+    return allowMockFallback(trip) ? mockGenerateDays(trip, fromDay, toDay, locale) : [];
   }
 
   const normalized = planned.map((day, i) => {
@@ -207,7 +192,7 @@ function normalizePlannedDays(
 
   const targetDay = normalized.find((d) => d.dayIndex === fromDay);
   if (!targetDay || targetDay.blocks.length === 0) {
-    return mockGenerateDays(trip, fromDay, toDay, locale);
+    return allowMockFallback(trip) ? mockGenerateDays(trip, fromDay, toDay, locale) : [];
   }
 
   return normalized;
@@ -216,6 +201,7 @@ function normalizePlannedDays(
 async function planningPass(
   trip: Trip,
   candidates: Place[],
+  neighborhoods: string[],
   fromDay: number,
   toDay: number,
   locale: ContentLocale = "en"
@@ -236,20 +222,25 @@ async function planningPass(
   );
 
   const confirmedPicks = formatConfirmedPicksForPrompt(trip, fromDay);
+  const profile = inferDestinationProfile(trip.destination);
+  const poolForPrompt = researchedOnly.slice(0, 60);
 
-  const prompt = `Create day plans for ${trip.destination}, days ${fromDay + 1} to ${toDay + 1} (0-indexed: ${fromDay} to ${toDay}).
+  const prompt = `Create day plans for ${trip.destination}${trip.country ? `, ${trip.country}` : ""}, days ${fromDay + 1} to ${toDay + 1} (0-indexed: ${fromDay} to ${toDay}).
+Destination profile: ${profile.type} (pace blocks: ${profile.suggestedBlockCount[trip.pace]}).
 Trip pace: ${trip.pace}. Interests: ${trip.interests.join(", ")}.
 Constraints: ${constraintsToPrompt(trip.constraints)}
+Neighborhoods to use (real areas only): ${JSON.stringify(neighborhoods)}
 User saved spots (from Xiaohongshu/links — schedule in fitting slots on day ${fromDay + 1}): ${JSON.stringify(savedSpots.map((p) => p.name))}
 Must-visit (required in itinerary): ${JSON.stringify(mustInclude.map((p) => p.name))}
 Confirmed picks from earlier days (match this taste when possible): ${confirmedPicks}
 Existing days already planned: ${existingDays.length}
-Research candidates pool (curated alternatives — rank by user fit): ${JSON.stringify(researchedOnly.slice(0, 40).map((c) => ({ name: c.name, neighborhood: c.neighborhood, kind: c.kind, mealSlot: c.mealSlot, tags: c.tags })))}
+Research candidates pool (curated alternatives — rank by user fit): ${JSON.stringify(poolForPrompt.map((c) => ({ name: c.name, neighborhood: c.neighborhood, kind: c.kind, mealSlot: c.mealSlot, tags: c.tags })))}
 
 Return JSON: { "days": [ DayPlan[] ] }
-Each DayPlan: dayIndex, date (${dateForDayIndex(trip.startDate, fromDay)} format), theme, neighborhoods (ordered), blocks.
-Each block: id, kind, label (e.g. "Breakfast in Shibuya"), neighborhood, suggestions (${SUGGESTIONS_PER_BLOCK_MIN}-${SUGGESTIONS_PER_BLOCK_MAX} places with full fields, best match first), backupPlace (optional), status "suggested".
+Each DayPlan: dayIndex, date (${dateForDayIndex(trip.startDate, fromDay)} format), theme, neighborhoods (ordered, from the neighborhoods list), blocks.
+Each block: id, kind, label (reference a real neighborhood, e.g. "Breakfast in Queenstown"), neighborhood, suggestions (${SUGGESTIONS_PER_BLOCK_MIN}-${SUGGESTIONS_PER_BLOCK_MAX} places with full fields, best match first), backupPlace (optional), status "suggested".
 IMPORTANT: Every block must have ${SUGGESTIONS_PER_BLOCK_MIN}-${SUGGESTIONS_PER_BLOCK_MAX} suggestions ranked for this traveler. At most one suggestion per block may be a user saved spot; the rest from the research pool (no duplicate names within a block).
+Theme and block labels MUST use real neighborhood/area names from the list — never "City Center", "Old Town", or "Waterfront" unless they are official local names.
 Cluster by neighborhood. Lunch near morning area. No duplicate places across days.
 Do not use minute-by-minute times.
 ${languageInstruction(locale)}`;
@@ -270,7 +261,7 @@ ${languageInstruction(locale)}`;
     return normalizePlannedDays(parsed.data.days, trip, fromDay, toDay, locale);
   }
 
-  return mockGenerateDays(trip, fromDay, toDay, locale);
+  return allowMockFallback(trip) ? mockGenerateDays(trip, fromDay, toDay, locale) : [];
 }
 
 function validationPass(
@@ -312,9 +303,9 @@ export async function generateTripDays(
 ): Promise<{ days: DayPlan[]; daysGenerated: number }> {
   const toDay = fromDay;
 
-  const researched = await researchPass(trip, locale);
+  const { candidates: researched, neighborhoods } = await researchPass(trip, locale);
   const candidates = mergeWishlistIntoCandidates(trip, researched);
-  const planned = await planningPass(trip, candidates, fromDay, toDay, locale);
+  const planned = await planningPass(trip, candidates, neighborhoods, fromDay, toDay, locale);
   const withAlternatives = ensureBlockSuggestionCount(planned, candidates, trip, fromDay);
   const validated = validationPass(trip, withAlternatives, candidates, fromDay);
 
@@ -359,7 +350,7 @@ export async function regenerateScope(
     return trip.days.map((d) => (d.dayIndex === dayIndex ? refreshed[0] : d));
   }
 
-  const candidates = await researchPass(trip, locale);
+  const { candidates, neighborhoods } = await researchPass(trip, locale);
   const openai = getOpenAI()!;
 
   const scopeDesc = blockId
@@ -373,12 +364,13 @@ export async function regenerateScope(
     messages: [
       {
         role: "user",
-        content: `${scopeDesc} for ${trip.destination}. Reason: ${feedback}.
+        content: `${scopeDesc} for ${trip.destination}${trip.country ? `, ${trip.country}` : ""}. Reason: ${feedback}.
 Trip interests: ${trip.interests.join(", ")}. Constraints: ${constraintsToPrompt(trip.constraints)}
+Neighborhoods to use: ${JSON.stringify(neighborhoods)}
 Confirmed picks from earlier days: ${confirmedPicks}
 Current day: ${JSON.stringify(day)}
-Candidates: ${JSON.stringify(candidates.slice(0, 40).map((c) => ({ name: c.name, kind: c.kind, neighborhood: c.neighborhood })))}
-Return JSON: { "days": [single DayPlan] } with ${SUGGESTIONS_PER_BLOCK_MIN}-${SUGGESTIONS_PER_BLOCK_MAX} ranked suggestions per block (best match first). Keep confirmed blocks unchanged if blockId specified.
+Candidates: ${JSON.stringify(candidates.slice(0, 60).map((c) => ({ name: c.name, kind: c.kind, neighborhood: c.neighborhood })))}
+Return JSON: { "days": [single DayPlan] } with ${SUGGESTIONS_PER_BLOCK_MIN}-${SUGGESTIONS_PER_BLOCK_MAX} ranked suggestions per block (best match first). Use real neighborhood names only. Keep confirmed blocks unchanged if blockId specified.
 ${languageInstruction(locale)}`,
       },
     ],
@@ -395,8 +387,12 @@ ${languageInstruction(locale)}`,
     return trip.days.map((d) => (d.dayIndex === dayIndex ? curatedDay : d));
   }
 
-  const refreshed = mockGenerateDays(trip, dayIndex, dayIndex, locale);
-  return trip.days.map((d) => (d.dayIndex === dayIndex ? refreshed[0] : d));
+  if (allowMockFallback(trip)) {
+    const refreshed = mockGenerateDays(trip, dayIndex, dayIndex, locale);
+    return trip.days.map((d) => (d.dayIndex === dayIndex ? refreshed[0] : d));
+  }
+
+  return trip.days;
 }
 
 export const GENERATION_STATUS_MESSAGES = [
